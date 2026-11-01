@@ -201,6 +201,7 @@ def get_products_categories_keyboard():
     markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
     return markup
 
+# এখানে দেশের নামের পাশে স্টক (Stock) দেখানোর কোড আপডেট করা হয়েছে
 def get_products_countries_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=1)
     if "Telegram Protocol" in product_inventory and "items" in product_inventory["Telegram Protocol"]:
