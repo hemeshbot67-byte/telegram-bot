@@ -1,4 +1,3 @@
 pyTelegramBotAPI
 pyzipper
-pymongo
-dnspython
+firebase-admin
