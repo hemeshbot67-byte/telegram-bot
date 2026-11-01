@@ -865,7 +865,8 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                     document=single_zip_buffer, 
                     visible_file_name=f"{item_key}_{file_short_name}.zip",
                     caption=f"📦 Your Password-Protected ZIP File\n🔐 Password (2FA): `{tfa_code}`", 
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
+                    reply_markup=get_main_menu_keyboard(user_id)
                 )
             elif len(accounts_list) > 0:
                 purchased_item = accounts_list.pop(0)
@@ -908,7 +909,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                     f"💵 Paid: ${price_per_unit:.2f}\n\n"
                     f"Remaining Balance: ${user_balances[user_id]:.2f}"
                 )
-                bot.send_message(chat_id, success_text, parse_mode="Markdown")
+                bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
         save_database()
     else:
         for _ in range(qty):
@@ -929,7 +930,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                     f"💵 Paid: ${price_per_unit:.2f}\n\n"
                     f"Remaining Balance: ${user_balances[user_id]:.2f}"
                 )
-                bot.send_message(chat_id, success_text, parse_mode="Markdown")
+                bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_inline_clicks(call):
