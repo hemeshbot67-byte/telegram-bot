@@ -6,7 +6,6 @@ import random
 import os
 import io
 import json
-from pymongo import MongoClient
 
 TOKEN = '9046269011:AAFYTbuHfTuKTBbgBHQroWfCRs4tJJXBdPM'
 bot = telebot.TeleBot(TOKEN)
@@ -14,16 +13,11 @@ bot = telebot.TeleBot(TOKEN)
 # অ্যাডমিন কনফিগারেশন
 ADMIN_ID = 6911427937  # আপনার আইডি
 
-# ── MongoDB কানেকশন ──
-# আপনার MongoDB Atlas কানেকশন স্ট্রিং এখানে দিন (username এবং password বসিয়ে)
-MONGO_URI = "mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority"
-client = MongoClient(MONGO_URI)
-db = client["telegram_bot_db"]
-collection = db["bot_data"]
+# ── Local JSON Database Setup ──
+DB_FILE = "bot_database.json"
 
 # ডিফল্ট ডাটা স্ট্রাকচার
 DEFAULT_DATABASE = {
-    "_id": "main_config",
     "user_amounts": {},
     "user_states": {},
     "user_balances": {},
@@ -48,19 +42,26 @@ DEFAULT_DATABASE = {
     }
 }
 
-# ডাটা লোড করার ফাংশন (MongoDB থেকে)
+# ডাটা লোড করার ফাংশন (Local JSON থেকে)
 def load_database():
+    if not os.path.exists(DB_FILE):
+        save_to_json(DEFAULT_DATABASE)
+        return DEFAULT_DATABASE
     try:
-        data = collection.find_one({"_id": "main_config"})
-        if not data:
-            collection.insert_one(DEFAULT_DATABASE)
-            return DEFAULT_DATABASE
-        return data
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception as e:
-        print(f"Error loading database from MongoDB: {e}")
+        print(f"Error loading database from JSON: {e}")
         return DEFAULT_DATABASE
 
-# ডাটা সেভ করার ফাংশন (MongoDB-তে)
+def save_to_json(data):
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error saving database to JSON: {e}")
+
+# ডাটা সেভ করার ফাংশন
 def save_database():
     data = {
         "user_amounts": {str(k): v for k, v in user_amounts.items()},
@@ -72,10 +73,7 @@ def save_database():
         "all_users": list(all_users),
         "product_inventory": product_inventory
     }
-    try:
-        collection.update_one({"_id": "main_config"}, {"$set": data}, upsert=True)
-    except Exception as e:
-        print(f"Error saving database to MongoDB: {e}")
+    save_to_json(data)
 
 # ডাটা ইনিশিয়ালাইজেশন
 db_data = load_database()
@@ -1224,5 +1222,5 @@ def handle_inline_clicks(call):
 
 if __name__ == '__main__':
     set_bot_commands(bot)
-    print("Bot is running perfectly with MongoDB Database...")
+    print("Bot is running perfectly with Local JSON Database...")
     bot.infinity_polling()
