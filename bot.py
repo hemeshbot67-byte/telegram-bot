@@ -206,8 +206,14 @@ def get_products_countries_keyboard():
     if "Telegram Protocol" in product_inventory and "items" in product_inventory["Telegram Protocol"]:
         for country, data in product_inventory["Telegram Protocol"]["items"].items():
             c_code = data.get("code", "")
-            btn_text = f"🌐 {country} ({c_code})"
+            
+            # স্টকের পরিমাণ হিসাব করা (accounts এবং zip_files দুটো মিলিয়ে)[span_1](start_span)[span_1](end_span)
+            zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
+            total_stock = len(data.get("accounts", [])) + zip_stock_count
+            
+            btn_text = f"🌐 {country} ({c_code}) — Stock: {total_stock}"
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"select_country_{country}"))
+            
     markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
     return markup
 
