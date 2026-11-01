@@ -8,6 +8,8 @@ import io
 import json
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import firebase_admin
+from firebase_admin import credentials, db
 
 TOKEN = '9046269011:AAFkdUZ7L71aF3RvcA7k_upxH8esJZe_DIw'
 bot = telebot.TeleBot(TOKEN)
@@ -15,8 +17,11 @@ bot = telebot.TeleBot(TOKEN)
 # অ্যাডমিন কনফিগারেশন
 ADMIN_ID = 6911427937  # আপনার আইডি
 
-# ── Local JSON Database Setup ──
-DB_FILE = "bot_database.json"
+# ── Firebase Realtime Database Setup ──
+cred = credentials.Certificate("firebase_credentials.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://telegrambotdb-e08fd-default-rtdb.firebaseio.com'
+})
 
 # ডিফল্ট ডাটা স্ট্রাকচার
 DEFAULT_DATABASE = {
@@ -44,38 +49,36 @@ DEFAULT_DATABASE = {
     }
 }
 
-# ডাটা লোড করার ফাংশন (Local JSON থেকে)
+# ডাটা লোড করার ফাংশন (Firebase থেকে)
 def load_database():
-    if not os.path.exists(DB_FILE):
-        save_to_json(DEFAULT_DATABASE)
-        return DEFAULT_DATABASE
     try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        ref = db.reference('/')
+        data = ref.get()
+        if not data:
+            ref.set(DEFAULT_DATABASE)
+            return DEFAULT_DATABASE
+        return data
     except Exception as e:
-        print(f"Error loading database from JSON: {e}")
+        print(f"Error loading database from Firebase: {e}")
         return DEFAULT_DATABASE
 
-def save_to_json(data):
-    try:
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-    except Exception as e:
-        print(f"Error saving database to JSON: {e}")
-
-# ডাটা সেভ করার ফাংশন
+# ডাটা সেভ করার ফাংশন (Firebase এ)
 def save_database():
-    data = {
-        "user_amounts": {str(k): v for k, v in user_amounts.items()},
-        "user_states": {str(k): v for k, v in user_states.items()},
-        "user_balances": {str(k): v for k, v in user_balances.items()},
-        "user_purchases": {str(k): v for k, v in user_purchases.items()},
-        "user_deposits": {str(k): v for k, v in user_deposits.items()},
-        "user_referrals": {str(k): v for k, v in user_referrals.items()},
-        "all_users": list(all_users),
-        "product_inventory": product_inventory
-    }
-    save_to_json(data)
+    try:
+        data = {
+            "user_amounts": {str(k): v for k, v in user_amounts.items()},
+            "user_states": {str(k): v for k, v in user_states.items()},
+            "user_balances": {str(k): v for k, v in user_balances.items()},
+            "user_purchases": {str(k): v for k, v in user_purchases.items()},
+            "user_deposits": {str(k): v for k, v in user_deposits.items()},
+            "user_referrals": {str(k): v for k, v in user_referrals.items()},
+            "all_users": list(all_users),
+            "product_inventory": product_inventory
+        }
+        ref = db.reference('/')
+        ref.set(data)
+    except Exception as e:
+        print(f"Error saving database to Firebase: {e}")
 
 # ডাটা ইনিশিয়ালাইজেশন
 db_data = load_database()
@@ -201,14 +204,11 @@ def get_products_categories_keyboard():
     markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
     return markup
 
-# এখানে দেশের নামের পাশে স্টক (Stock) দেখানোর কোড আপডেট করা হয়েছে
 def get_products_countries_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=1)
     if "Telegram Protocol" in product_inventory and "items" in product_inventory["Telegram Protocol"]:
         for country, data in product_inventory["Telegram Protocol"]["items"].items():
             c_code = data.get("code", "")
-            
-            # স্টকের পরিমাণ হিসাব করা (accounts এবং zip_files দুটো মিলিয়ে)[span_1](start_span)[span_1](end_span)
             zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
             total_stock = len(data.get("accounts", [])) + zip_stock_count
             
@@ -859,7 +859,6 @@ def handle_inline_clicks(call):
         user_deposits[user_id] = []
     save_database()
 
-    # কোয়ান্টিটি বাটন হ্যান্ডলার
     if call.data.startswith("qty_"):
         remainder = call.data.replace("qty_", "")
         if remainder.startswith("other_"):
@@ -884,7 +883,6 @@ def handle_inline_clicks(call):
             process_product_purchase(call.message.chat.id, user_id, item_key, qty)
         return
 
-    # Telegram Premium এ ক্লিক করলে সরাসরি Support-এ রিডাইরেক্ট করবে
     if call.data == "prod_telegram_prem_support":
         bot.answer_callback_query(call.id, "Redirecting to Support...")
         support_text = (
@@ -900,7 +898,6 @@ def handle_inline_clicks(call):
             bot.send_message(call.message.chat.id, support_text, parse_mode="Markdown", reply_markup=markup)
         return
 
-    # অ্যাডমিন: নতুন ক্যাটাগরি যুক্ত করার প্রম্পট
     if call.data == "admin_add_category":
         if user_id == ADMIN_ID:
             user_states[user_id] = "waiting_for_new_category_name"
@@ -912,7 +909,6 @@ def handle_inline_clicks(call):
                 pass
         return
 
-    # ব্যবহারকারী যখন মেইন ক্যাটাগরিতে ক্লিক করবে (যেমন Google Voice, Gmail, VPN)
     elif call.data.startswith("prod_subcat_menu_"):
         cat_name = call.data.replace("prod_subcat_menu_", "")
         bot.answer_callback_query(call.id, cat_name)
@@ -951,7 +947,6 @@ def handle_inline_clicks(call):
             pass
         return
 
-    # টেলিগ্রাম প্রোটোকল: লেয়ার ১ (কান্ট্রি ও ফোন কোড সিলেক্ট করার পর লেয়ার ২: Price ও Stock দেখানো)
     elif call.data == "prod_telegram_acc":
         bot.answer_callback_query(call.id, "Telegram Protocol")
         try:
@@ -999,7 +994,6 @@ def handle_inline_clicks(call):
             pass
         return
 
-    # অ্যাডমিন: স্টক ও প্রাইস যোগ করার মেনু (Add Stock & Price for Sub-Folders)
     if call.data == "admin_add_accounts":
         if user_id == ADMIN_ID:
             markup = types.InlineKeyboardMarkup(row_width=1)
@@ -1046,7 +1040,6 @@ def handle_inline_clicks(call):
                 pass
         return
 
-    # ── অ্যাডমিন: ক্যাটাগরি ও সাব-ফোল্ডার এডিট ও ডিলিট মেনু ──
     if call.data == "admin_edit_delete_cat_menu":
         if user_id == ADMIN_ID:
             markup = types.InlineKeyboardMarkup(row_width=1)
@@ -1487,7 +1480,6 @@ def handle_inline_clicks(call):
             pass
         send_welcome(call.message)
 
-# ── রেন্ডার পোর্ট রিকোয়ারমেন্ট পূরণের জন্য ফেইক ওয়েব সার্ভার ──
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -1500,9 +1492,8 @@ def run_web_server():
     server.serve_forever()
 
 if __name__ == '__main__':
-    # আলাদা থ্রেডে ওয়েব সার্ভার চালু করা
     threading.Thread(target=run_web_server, daemon=True).start()
     
     set_bot_commands(bot)
-    print("Bot is running perfectly with Local JSON Database and Port Keep-Alive...")
+    print("Bot is running perfectly with Firebase Realtime Database and Port Keep-Alive...")
     bot.infinity_polling()
