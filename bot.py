@@ -695,7 +695,7 @@ def handle_all_messages(message):
             f"Username  ·  {username}\n"
             f"Balance  ·  ${user_balances.get(str(user_id), user_balances.get(user_id, 0.00)):.2f}\n"
             f"Referrals  ·  {total_refs} users\n"
-            f"Purchased  ·  {len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))}"
+            f"Purchased  ·  ${len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))}"
         )
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
     elif text == "🔍 Search":
@@ -1448,7 +1448,7 @@ def handle_inline_clicks(call):
             markup = types.InlineKeyboardMarkup(row_width=1)
             for c in product_inventory["Telegram Protocol"]["items"].keys():
                 markup.add(types.InlineKeyboardButton(f"🗂️ Protocol Country ({c})", callback_data=f"select_zip_country_{c}"))
-            markup.add(types.InlineKeyboardButton("< Back", `admin_back`))
+            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_back"))
             bot.answer_callback_query(call.id, "ZIP Menu")
             try:
                 bot.edit_message_text("Select country to upload ZIP file stock:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1488,7 +1488,7 @@ def handle_inline_clicks(call):
         send_welcome(call.message)
 
 class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_GET(self,):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is alive!")
