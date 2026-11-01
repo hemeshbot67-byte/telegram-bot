@@ -297,8 +297,6 @@ def get_admin_panel_keyboard():
         types.InlineKeyboardButton("➕ Add New Product Category", callback_data="admin_add_category"),
         types.InlineKeyboardButton("📦 Add Stock & Price", callback_data="admin_add_accounts"),
         types.InlineKeyboardButton("✏️ Edit / Delete Categories", callback_data="admin_edit_delete_cat_menu"),
-        types.InlineKeyboardButton("➕ Add New Country (Telegram Protocol)", callback_data="admin_add_country"),
-        types.InlineKeyboardButton("🗂️ Add ZIP File Stock (Protocol)", callback_data="admin_add_zip_menu"),
         types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu")
     )
     return markup
@@ -402,6 +400,23 @@ def handle_all_messages(message):
                 product_inventory[new_cat_name] = {"type": "sub_categories", "items": {}}
                 save_database()
                 bot.send_message(message.chat.id, f"✅ Successfully added new product category: **{new_cat_name}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+            user_states.pop(user_id, None)
+            save_database()
+        return
+
+    if user_states.get(user_id, "").startswith("waiting_for_protocol_price_"):
+        if user_id == ADMIN_ID:
+            country_name = user_states.get(user_id).replace("waiting_for_protocol_price_", "")
+            try:
+                new_price = float(message.text.strip())
+                if country_name in product_inventory["Telegram Protocol"]["items"]:
+                    product_inventory["Telegram Protocol"]["items"][country_name]["price"] = new_price
+                    save_database()
+                    bot.send_message(message.chat.id, f"✅ Successfully updated price for **{country_name}** to **${new_price:.2f}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                else:
+                    bot.send_message(message.chat.id, "❌ Country not found.")
+            except ValueError:
+                bot.send_message(message.chat.id, "❌ Invalid price! Please enter a valid number (e.g., `1.50`).")
             user_states.pop(user_id, None)
             save_database()
         return
@@ -630,7 +645,6 @@ def handle_all_messages(message):
     if user_states.get(user_id) == "waiting_for_payment_proof":
         proof_text = message.text.strip() if message.text else "Media Proof"
         
-        # ডুপ্লিকেট TxID চেক করা
         if proof_text in used_txids:
             bot.send_message(message.chat.id, "❌ **This Order ID / TxID has already been used!** Each ID can only be used once for a deposit.", parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
             user_states.pop(user_id, None)
@@ -707,7 +721,6 @@ def handle_all_messages(message):
         return
 
     if text == "📊 Dashboard":
-        # ড্যাশবোর্ডে সকল প্রোডাক্টের প্রাইস ও স্টক লিস্ট দেখানোর ব্যবস্থা
         dashboard_text = (
             "📊 **Dashboard & Price List**\n"
             "────────────────────────\n"
@@ -931,7 +944,6 @@ def handle_inline_clicks(call):
         user_deposits[user_id] = []
     save_database()
 
-    # ভাষা পরিবর্তন হ্যান্ডলার
     if call.data == "lang_en":
         user_languages[user_id] = "en"
         save_database()
@@ -1151,25 +1163,44 @@ def handle_inline_clicks(call):
         if user_id == ADMIN_ID:
             cat_name = call.data.replace("admin_manage_cat_", "")
             markup = types.InlineKeyboardMarkup(row_width=1)
-            markup.add(
-                types.InlineKeyboardButton(f"➕ Add New Sub-Folder in {cat_name}", callback_data=f"admin_sub_add_{cat_name}"),
-                types.InlineKeyboardButton(f"✏️ Rename Category ({cat_name})", callback_data=f"admin_rename_cat_{cat_name}"),
-                types.InlineKeyboardButton(f"❌ Delete Category ({cat_name})", callback_data=f"admin_delete_cat_{cat_name}")
-            )
             
-            sub_items = product_inventory.get(cat_name, {}).get("items", {})
-            if sub_items:
-                markup.add(types.InlineKeyboardButton("─── Sub-Folders List ───", callback_data="noop"))
-                for sub_name in sub_items.keys():
-                    markup.add(
-                        types.InlineKeyboardButton(f"✏️ Rename Sub: {sub_name}", callback_data=f"admin_rename_sub_{cat_name}___{sub_name}"),
-                        types.InlineKeyboardButton(f"❌ Delete Sub: {sub_name}", callback_data=f"admin_delete_sub_{cat_name}___{sub_name}")
-                    )
+            if cat_name == "Telegram Protocol":
+                markup.add(types.InlineKeyboardButton("➕ Add New Country Telegram (Protocol)", callback_data="admin_add_country"))
+                markup.add(types.InlineKeyboardButton("🗂️ Add Zip File Stock (Protocol)", callback_data="admin_add_zip_menu"))
+                markup.add(types.InlineKeyboardButton("─── Country Prices Manage ───", callback_data="noop"))
+                for c_name in product_inventory["Telegram Protocol"]["items"].keys():
+                    markup.add(types.InlineKeyboardButton(f"💵 Edit Price: {c_name}", callback_data=f"admin_edit_protocol_price_{c_name}"))
+            else:
+                markup.add(
+                    types.InlineKeyboardButton(f"➕ Add New Sub-Folder in {cat_name}", callback_data=f"admin_sub_add_{cat_name}"),
+                    types.InlineKeyboardButton(f"✏️ Rename Category ({cat_name})", callback_data=f"admin_rename_cat_{cat_name}"),
+                    types.InlineKeyboardButton(f"❌ Delete Category ({cat_name})", callback_data=f"admin_delete_cat_{cat_name}")
+                )
+                sub_items = product_inventory.get(cat_name, {}).get("items", {})
+                if sub_items:
+                    markup.add(types.InlineKeyboardButton("─── Sub-Folders List ───", callback_data="noop"))
+                    for sub_name in sub_items.keys():
+                        markup.add(
+                            types.InlineKeyboardButton(f"✏️ Rename Sub: {sub_name}", callback_data=f"admin_rename_sub_{cat_name}___{sub_name}"),
+                            types.InlineKeyboardButton(f"❌ Delete Sub: {sub_name}", callback_data=f"admin_delete_sub_{cat_name}___{sub_name}")
+                        )
             
             markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_edit_delete_cat_menu"))
             bot.answer_callback_query(call.id, cat_name)
             try:
                 bot.edit_message_text(f"📁 **Category:** `{cat_name}`\nChoose an action:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except Exception:
+                pass
+        return
+
+    elif call.data.startswith("admin_edit_protocol_price_"):
+        if user_id == ADMIN_ID:
+            country_name = call.data.replace("admin_edit_protocol_price_", "")
+            user_states[user_id] = f"waiting_for_protocol_price_{country_name}"
+            save_database()
+            bot.answer_callback_query(call.id, country_name)
+            try:
+                bot.edit_message_text(f"💵 Enter new price for **Telegram Protocol ({country_name})** (e.g., `1.50`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
             except Exception:
                 pass
         return
@@ -1261,7 +1292,6 @@ def handle_inline_clicks(call):
                 amount = float(parts[3])
                 txid_val = parts[4] if len(parts) > 4 else ""
                 
-                # TxID বা Order ID ব্যবহৃত লিস্টে যোগ করা যাতে পরবর্তীতে কেউ আবার ব্যবহার করতে না পারে
                 if txid_val:
                     used_txids.add(txid_val)
 
@@ -1540,7 +1570,7 @@ def handle_inline_clicks(call):
             markup = types.InlineKeyboardMarkup(row_width=1)
             for c in product_inventory["Telegram Protocol"]["items"].keys():
                 markup.add(types.InlineKeyboardButton(f"🗂️ Protocol Country ({c})", callback_data=f"select_zip_country_{c}"))
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_back"))
+            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_edit_delete_cat_menu"))
             bot.answer_callback_query(call.id, "ZIP Menu")
             try:
                 bot.edit_message_text("Select country to upload ZIP file stock:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
