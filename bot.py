@@ -38,6 +38,8 @@ DEFAULT_DATABASE = {
     "user_purchases": {},
     "user_deposits": {},
     "user_referrals": {},
+    "used_txids": [],
+    "user_languages": {},
     "all_users": [],
     "product_inventory": {
         "Telegram Protocol": {
@@ -79,6 +81,8 @@ def save_database():
             "user_purchases": {str(k): v for k, v in user_purchases.items()},
             "user_deposits": {str(k): v for k, v in user_deposits.items()},
             "user_referrals": {str(k): v for k, v in user_referrals.items()},
+            "used_txids": list(used_txids),
+            "user_languages": {str(k): v for k, v in user_languages.items()},
             "all_users": list(all_users),
             "product_inventory": product_inventory
         }
@@ -95,9 +99,44 @@ user_balances = {int(k): v for k, v in db_data.get("user_balances", {}).items()}
 user_purchases = {int(k): v for k, v in db_data.get("user_purchases", {}).items()}
 user_deposits = {int(k): v for k, v in db_data.get("user_deposits", {}).items()}
 user_referrals = {int(k): v for k, v in db_data.get("user_referrals", {}).items()}
+used_txids = set(db_data.get("used_txids", []))
+user_languages = {int(k): v for k, v in db_data.get("user_languages", {}).items()}
 all_users = set(int(u) for u in db_data.get("all_users", []))
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
+
+# ভাষার ডিকশনারি (Texts)
+LANG = {
+    "en": {
+        "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
+        "dashboard": "📊 **Dashboard & Price List**\n\nHere is the overview of all available product prices and your dashboard info:",
+        "products": "📁 **Select a product category:**",
+        "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nReferrals  ·  {total_refs} users\nPurchased  ·  ${purchased_total}",
+        "deposit": "Select amount (USDT):",
+        "refer": "👥 **Refer & Earn Program**\n────────────────────────\nRefer our bot to your friends and earn an attractive bonus for each referral!\n\n🔗 **Your Referral Link:**\n`{referral_link}`\n\n📊 **Total Referrals:** {total_referrals} users\n💡 Copy this link and share it with your friends.",
+        "history": "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:",
+        "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 @longzu01",
+        "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
+        "language": "🌐 **Language Settings / 语言设置**\n\nPlease select your preferred language:",
+        "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:"
+    },
+    "zh": {
+        "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
+        "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有可用产品价格和您的仪表盘信息概述：",
+        "products": "📁 **选择产品类别：**",
+        "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
+        "deposit": "选择金额 (USDT)：",
+        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
+        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
+        "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @longzu01",
+        "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
+        "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
+        "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项："
+    }
+}
+
+def get_lang(user_id):
+    return user_languages.get(user_id, "en")
 
 def set_bot_commands(bot_instance):
     commands = [
@@ -225,6 +264,15 @@ def get_products_countries_keyboard():
     markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
     return markup
 
+def get_language_keyboard():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
+        types.InlineKeyboardButton("🇨🇳 China (中文)", callback_data="lang_zh")
+    )
+    markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
+    return markup
+
 def get_main_menu_keyboard(user_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(
@@ -235,6 +283,7 @@ def get_main_menu_keyboard(user_id):
         types.KeyboardButton("👥 Refer & Earn"),
         types.KeyboardButton("目 History"),
         types.KeyboardButton("Support"),
+        types.KeyboardButton("🌐 Language"),
         types.KeyboardButton("🔍 Search")
     )
     if user_id == ADMIN_ID:
@@ -281,22 +330,15 @@ def send_welcome(message):
             pass
 
     user_name = message.from_user.first_name or "User"
-    welcome_text = (
-        f"Welcome, {user_name}.\n\n"
-        "────────────────────────\n"
-        "◆ **OUR BUSINESS** ◆\n"
-        "All kinds of daily needs, digital and physical products — wholesale / retail!\n\n"
-        "‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n"
-        "‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n"
-        "────────────────────────\n"
-        "‣ Use the menu below to get started."
-    )
+    lang_code = get_lang(user_id)
+    welcome_text = LANG[lang_code]["welcome"].format(user_name=user_name)
     bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
 
 @bot.message_handler(commands=['admin'])
 def admin_command(message):
     if message.from_user.id == ADMIN_ID:
-        bot.send_message(message.chat.id, "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+        lang_code = get_lang(message.from_user.id)
+        bot.send_message(message.chat.id, LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
     else:
         bot.send_message(message.chat.id, "❌ You are not authorized to access the Admin Panel.")
 
@@ -586,10 +628,18 @@ def handle_all_messages(message):
         return
 
     if user_states.get(user_id) == "waiting_for_payment_proof":
+        proof_text = message.text.strip() if message.text else "Media Proof"
+        
+        # ডুপ্লিকেট TxID চেক করা
+        if proof_text in used_txids:
+            bot.send_message(message.chat.id, "❌ **This Order ID / TxID has already been used!** Each ID can only be used once for a deposit.", parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+            user_states.pop(user_id, None)
+            temp_admin_data.pop(f"order_info_{user_id}", None)
+            return
+
         order_data = temp_admin_data.get(f"order_info_{user_id}", {})
         order_id = order_data.get("order_id", "N/A")
         method_name = order_data.get("method", "General Deposit")
-        proof_text = message.text.strip() if message.text else "Media Proof"
         current_amount = user_amounts.get(user_id, 2.00)
         
         admin_alert = (
@@ -602,7 +652,7 @@ def handle_all_messages(message):
         )
         admin_markup = types.InlineKeyboardMarkup(row_width=2)
         admin_markup.add(
-            types.InlineKeyboardButton("✅ Accept Deposit", callback_data=f"dep_accept_{user_id}_{current_amount}"),
+            types.InlineKeyboardButton("✅ Accept Deposit", callback_data=f"dep_accept_{user_id}_{current_amount}_{proof_text}"),
             types.InlineKeyboardButton("❌ Reject Deposit", callback_data=f"dep_reject_{user_id}_{current_amount}")
         )
         try:
@@ -644,66 +694,81 @@ def handle_all_messages(message):
 
     text = message.text if message.text else ""
 
-    if text in ["◆ Products", "◆ My Account", "▲ Deposit", "👥 Refer & Earn", "目 History", "Support", "🔍 Search", "🛠️ Admin Panel", "📊 Dashboard"]:
+    if text in ["◆ Products", "◆ My Account", "▲ Deposit", "👥 Refer & Earn", "目 History", "Support", "🌐 Language", "🔍 Search", "🛠️ Admin Panel", "📊 Dashboard"]:
         user_states.pop(user_id, None)
         save_database()
 
     if text == "🛠️ Admin Panel":
         if user_id == ADMIN_ID:
-            bot.send_message(message.chat.id, "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+            lang_code = get_lang(user_id)
+            bot.send_message(message.chat.id, LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
         else:
             bot.send_message(message.chat.id, "❌ Access denied.")
         return
 
     if text == "📊 Dashboard":
-        bot.send_message(message.chat.id, "📊 **Dashboard**\n\nWelcome to your clean dashboard panel.", parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+        # ড্যাশবোর্ডে সকল প্রোডাক্টের প্রাইস ও স্টক লিস্ট দেখানোর ব্যবস্থা
+        dashboard_text = (
+            "📊 **Dashboard & Price List**\n"
+            "────────────────────────\n"
+            "Here is the current inventory and price list of all products:\n\n"
+        )
+        for cat_name, cat_data in product_inventory.items():
+            dashboard_text += f"📂 **{cat_name}**\n"
+            if cat_name == "Telegram Protocol" and "items" in cat_data:
+                for c_name, c_info in cat_data["items"].items():
+                    zip_st = sum(len(zf.get("extracted_files", [])) for zf in c_info.get("zip_files", []))
+                    total_st = len(c_info.get("accounts", [])) + zip_st
+                    dashboard_text += f"  • {c_name} ({c_info.get('code', '')}) — Price: ${c_info.get('price', 1.00):.2f} | Stock: {total_st}\n"
+            elif "items" in cat_data:
+                for sub_n, sub_inf in cat_data["items"].items():
+                    sub_st = len(sub_inf.get("accounts", []))
+                    dashboard_text += f"  • {sub_n} — Price: ${sub_inf.get('price', 1.00):.2f} | Stock: {sub_st}\n"
+            elif "price" in cat_data:
+                st_count = len(cat_data.get("accounts", []))
+                dashboard_text += f"  • Price: ${cat_data.get('price', 1.00):.2f} | Stock: {st_count}\n"
+            dashboard_text += "\n"
+        
+        bot.send_message(message.chat.id, dashboard_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+
     elif text == "◆ Products":
-        bot.send_message(message.chat.id, "📁 **Select a product category:**", parse_mode="Markdown", reply_markup=get_products_categories_keyboard())
+        lang_code = get_lang(user_id)
+        bot.send_message(message.chat.id, LANG[lang_code]["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard())
     elif text == "▲ Deposit":
+        lang_code = get_lang(user_id)
         user_states[user_id] = "waiting_for_deposit"
         save_database()
-        bot.send_message(message.chat.id, "Select amount (USDT):", parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
+        bot.send_message(message.chat.id, LANG[lang_code]["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
     elif text == "👥 Refer & Earn":
         bot_info = bot.get_me()
         bot_username = bot_info.username
         referral_link = f"https://t.me/{bot_username}?start={user_id}"
         total_referrals = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
-        referral_text = (
-            "👥 **Refer & Earn Program**\n"
-            "────────────────────────\n"
-            "Refer our bot to your friends and earn an attractive bonus for each referral!\n\n"
-            f"🔗 **Your Referral Link:**\n`{referral_link}`\n\n"
-            f"📊 **Total Referrals:** {total_referrals} users\n"
-            "💡 Copy this link and share it with your friends."
-        )
+        lang_code = get_lang(user_id)
+        referral_text = LANG[lang_code]["refer"].format(referral_link=referral_link, total_refs=total_referrals, total_referrals=total_referrals)
         bot.send_message(message.chat.id, referral_text, parse_mode="Markdown")
     elif text == "目 History":
-        history_main_text = (
-            "目 **HISTORY MENU**\n"
-            "──────────────────────\n"
-            "Please select which history you want to view:"
-        )
-        bot.send_message(message.chat.id, history_main_text, parse_mode="Markdown", reply_markup=get_history_menu_keyboard())
+        lang_code = get_lang(user_id)
+        bot.send_message(message.chat.id, LANG[lang_code]["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard())
     elif text == "◆ My Account":
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
         total_refs = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
-        account_text = (
-            "◆ **ACCOUNT**\n"
-            "────────────────────────\n"
-            f"User ID  ·  `{user.id}`\n"
-            f"Username  ·  {username}\n"
-            f"Balance  ·  ${user_balances.get(str(user_id), user_balances.get(user_id, 0.00)):.2f}\n"
-            f"Referrals  ·  {total_refs} users\n"
-            f"Purchased  ·  ${len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))}"
-        )
+        balance_val = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
+        purchased_total = len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))
+        lang_code = get_lang(user_id)
+        account_text = LANG[lang_code]["account"].format(user_id=user.id, username=username, balance=balance_val, total_refs=total_refs, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
+    elif text == "🌐 Language":
+        bot.send_message(message.chat.id, LANG[get_lang(user_id)]["language"], parse_mode="Markdown", reply_markup=get_language_keyboard())
     elif text == "🔍 Search":
+        lang_code = get_lang(user_id)
         user_states[user_id] = "waiting_for_search_query"
         save_database()
-        bot.send_message(message.chat.id, "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):", parse_mode="Markdown")
+        bot.send_message(message.chat.id, LANG[lang_code]["search"], parse_mode="Markdown")
     elif text == "Support":
-        bot.send_message(message.chat.id, "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 @longzu01", parse_mode="Markdown")
+        lang_code = get_lang(user_id)
+        bot.send_message(message.chat.id, LANG[lang_code]["support"], parse_mode="Markdown")
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
     is_protocol = item_key in product_inventory["Telegram Protocol"]["items"] if "Telegram Protocol" in product_inventory else False
@@ -865,6 +930,28 @@ def handle_inline_clicks(call):
     if user_id not in user_deposits:
         user_deposits[user_id] = []
     save_database()
+
+    # ভাষা পরিবর্তন হ্যান্ডলার
+    if call.data == "lang_en":
+        user_languages[user_id] = "en"
+        save_database()
+        bot.answer_callback_query(call.id, "Language changed to English!")
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except Exception:
+            pass
+        send_welcome(call.message)
+        return
+    elif call.data == "lang_zh":
+        user_languages[user_id] = "zh"
+        save_database()
+        bot.answer_callback_query(call.id, "语言已更改为中文！")
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except Exception:
+            pass
+        send_welcome(call.message)
+        return
 
     if call.data.startswith("qty_"):
         remainder = call.data.replace("qty_", "")
@@ -1172,7 +1259,12 @@ def handle_inline_clicks(call):
                 parts = call.data.split("_")
                 target_user_id = int(parts[2])
                 amount = float(parts[3])
+                txid_val = parts[4] if len(parts) > 4 else ""
                 
+                # TxID বা Order ID ব্যবহৃত লিস্টে যোগ করা যাতে পরবর্তীতে কেউ আবার ব্যবহার করতে না পারে
+                if txid_val:
+                    used_txids.add(txid_val)
+
                 if target_user_id not in user_balances:
                     user_balances[target_user_id] = 0.00
                 user_balances[target_user_id] += amount
@@ -1180,7 +1272,7 @@ def handle_inline_clicks(call):
                 
                 bot.answer_callback_query(call.id, "Deposit Accepted!")
                 try:
-                    bot.edit_message_text(f"✅ **Deposit Approved & Credited!**\nUser ID: `{target_user_id}`\nAmount: `${amount:.2f}`", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+                    bot.edit_message_text(f"✅ **Deposit Approved & Credited!**\nUser ID: `{target_user_id}`\nAmount: `${amount:.2f}`\nTxID: `{txid_val}`", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
                 except Exception:
                     pass
                 
