@@ -17,8 +17,15 @@ bot = telebot.TeleBot(TOKEN)
 # অ্যাডমিন কনফিগারেশন
 ADMIN_ID = 6911427937  # আপনার আইডি
 
-# ── Firebase Realtime Database Setup ──
-cred = credentials.Certificate("firebase_credentials.json")
+# ── Firebase Realtime Database Setup (Render Safe) ──
+firebase_config_json = os.environ.get("FIREBASE_CONFIG_JSON")
+
+if firebase_config_json:
+    cred_dict = json.loads(firebase_config_json)
+    cred = credentials.Certificate(cred_dict)
+else:
+    cred = credentials.Certificate("firebase_credentials.json")
+
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://telegrambotdb-e08fd-default-rtdb.firebaseio.com'
 })
@@ -1441,7 +1448,7 @@ def handle_inline_clicks(call):
             markup = types.InlineKeyboardMarkup(row_width=1)
             for c in product_inventory["Telegram Protocol"]["items"].keys():
                 markup.add(types.InlineKeyboardButton(f"🗂️ Protocol Country ({c})", callback_data=f"select_zip_country_{c}"))
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_back"))
+            markup.add(types.InlineKeyboardButton("< Back", `admin_back`))
             bot.answer_callback_query(call.id, "ZIP Menu")
             try:
                 bot.edit_message_text("Select country to upload ZIP file stock:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
