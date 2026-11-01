@@ -6,6 +6,8 @@ import random
 import os
 import io
 import json
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 TOKEN = '9046269011:AAFkdUZ7L71aF3RvcA7k_upxH8esJZe_DIw'
 bot = telebot.TeleBot(TOKEN)
@@ -1220,7 +1222,22 @@ def handle_inline_clicks(call):
             pass
         send_welcome(call.message)
 
+# ── রেন্ডার পোর্ট রিকোয়ারমেন্ট পূরণের জন্য ফেইক ওয়েব সার্ভার ──
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive!")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
 if __name__ == '__main__':
+    # আলাদা থ্রেডে ওয়েব সার্ভার চালু করা
+    threading.Thread(target=run_web_server, daemon=True).start()
+    
     set_bot_commands(bot)
-    print("Bot is running perfectly with Local JSON Database...")
+    print("Bot is running perfectly with Local JSON Database and Port Keep-Alive...")
     bot.infinity_polling()
