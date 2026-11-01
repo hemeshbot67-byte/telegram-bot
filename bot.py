@@ -354,28 +354,17 @@ def handle_document_uploads(message):
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         
-        zip_bytes = io.BytesIO(downloaded_file)
-        try:
-            with pyzipper.ZipFile(zip_bytes, 'r') as zf:
-                file_list = zf.namelist()
-                valid_files = [f for f in file_list if not f.endswith('/')]
-                
-                if country_name in product_inventory["Telegram Protocol"]["items"]:
-                    temp_admin_data[f"zip_bytes_{user_id}"] = list(downloaded_file)
-                    temp_admin_data[f"zip_file_list_{user_id}"] = valid_files
-                    user_states[user_id] = "waiting_for_zip_2fa"
-                    
-                    response_msg = (
-                        f"✅ ZIP File uploaded successfully!\n\n"
-                        f"📁 **Total files inside this ZIP:** `{len(valid_files)}`\n\n"
-                        f"Now, please send the **2FA Code** associated with these files (This will also be used as the ZIP password):"
-                    )
-                    bot.send_message(message.chat.id, response_msg, parse_mode="Markdown")
-                else:
-                    bot.send_message(message.chat.id, "❌ Invalid country selected.")
-                    user_states.pop(user_id, None)
-        except Exception as e:
-            bot.send_message(message.chat.id, f"❌ Error reading ZIP file: {str(e)}")
+        if country_name in product_inventory["Telegram Protocol"]["items"]:
+            temp_admin_data[f"zip_bytes_{user_id}"] = list(downloaded_file)
+            user_states[user_id] = "waiting_for_zip_2fa"
+            
+            response_msg = (
+                f"✅ ZIP File uploaded successfully for **{country_name}**!\n\n"
+                f"🔐 Now, please send the **Password / 2FA Code** for this ZIP file so it can be verified and read properly:"
+            )
+            bot.send_message(message.chat.id, response_msg, parse_mode="Markdown")
+        else:
+            bot.send_message(message.chat.id, "❌ Invalid country selected.")
             user_states.pop(user_id, None)
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio'])
@@ -687,23 +676,44 @@ def handle_all_messages(message):
             tfa_code = message.text.strip() if message.text else ""
             country_name = temp_admin_data.get(user_id)
             zip_bytes_list = temp_admin_data.get(f"zip_bytes_{user_id}")
-            extracted_files = temp_admin_data.get(f"zip_file_list_{user_id}", [])
             
             if country_name and zip_bytes_list and tfa_code:
-                if "zip_files" not in product_inventory["Telegram Protocol"]["items"][country_name]:
-                    product_inventory["Telegram Protocol"]["items"][country_name]["zip_files"] = []
-                product_inventory["Telegram Protocol"]["items"][country_name]["zip_files"].append({
-                    "zip_bytes": zip_bytes_list,
-                    "2fa": tfa_code,
-                    "extracted_files": extracted_files
-                })
-                save_database()
-                bot.send_message(message.chat.id, f"✅ Successfully added ZIP stock for **{country_name}** ({len(extracted_files)} files) with 2FA & Password: `{tfa_code}`!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                zip_bytes = io.BytesIO(bytes(zip_bytes_list))
+                try:
+                    with pyzipper.AESZipFile(zip_bytes, 'r') as zf:
+                        zf.setpassword(tfa_code.encode('utf-8'))
+                        file_list = zf.namelist()
+                        valid_files = [f for f in file_list if not f.endswith('/')]
+                        
+                        if "zip_files" not in product_inventory["Telegram Protocol"]["items"][country_name]:
+                            product_inventory["Telegram Protocol"]["items"][country_name]["zip_files"] = []
+                        
+                        product_inventory["Telegram Protocol"]["items"][country_name]["zip_files"].append({
+                            "zip_bytes": zip_bytes_list,
+                            "2fa": tfa_code,
+                            "extracted_files": valid_files
+                        })
+                        save_database()
+                        
+                        bot.send_message(
+                            message.chat.id, 
+                            f"✅ Successfully added ZIP stock for **{country_name}**!\n"
+                            f"📁 Total valid files: `{len(valid_files)}`\n"
+                            f"🔐 Password / 2FA: `{tfa_code}`", 
+                            parse_mode="Markdown", 
+                            reply_markup=get_admin_panel_keyboard()
+                        )
+                except Exception as e:
+                    bot.send_message(
+                        message.chat.id, 
+                        f"❌ **Password Error!** The password you provided is incorrect or the ZIP file is corrupted.\nError details: `{str(e)}`\nPlease upload the ZIP file again and enter the correct password.", 
+                        parse_mode="Markdown",
+                        reply_markup=get_admin_panel_keyboard()
+                    )
             
             user_states.pop(user_id, None)
             temp_admin_data.pop(user_id, None)
             temp_admin_data.pop(f"zip_bytes_{user_id}", None)
-            temp_admin_data.pop(f"zip_file_list_{user_id}", None)
         return
 
     text = message.text if message.text else ""
@@ -827,7 +837,6 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
 
     if is_protocol:
         for _ in range(qty):
-            # Check if zip files stock is available
             while len(zip_list) > 0 and len(zip_list[0].get("extracted_files", [])) == 0:
                 zip_list.pop(0)
 
@@ -842,7 +851,8 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 single_zip_buffer = io.BytesIO()
                 with pyzipper.AESZipFile(single_zip_buffer, 'w', compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as new_zip:
                     new_zip.setpassword(tfa_code.encode('utf-8'))
-                    with pyzipper.ZipFile(io.BytesIO(orig_zip_bytes), 'r') as orig_zip:
+                    with pyzipper.AESZipFile(io.BytesIO(orig_zip_bytes), 'r') as orig_zip:
+                        orig_zip.setpassword(tfa_code.encode('utf-8'))
                         file_data = orig_zip.read(target_file_name)
                         new_zip.writestr(os.path.basename(target_file_name), file_data)
                 
@@ -1601,7 +1611,7 @@ def handle_inline_clicks(call):
         return
 
     elif call.data == "go_main_menu" or call.data == "dep_cancel":
-        bot.answer_callback_query(call.id, "Main Menu")
+        bot.answer_callback_query(call.id, "MainMenu")
         user_states.pop(user_id, None)
         save_database()
         try:
