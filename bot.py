@@ -7,7 +7,7 @@ import os
 import io
 import json
 
-TOKEN = '9046269011:AAFYTbuHfTuKTBbgBHQroWfCRs4tJJXBdPM'
+TOKEN = '9046269011:AAE5kpVoJUBLxTEfac3bHc1d2r_wjG0EjE0'
 bot = telebot.TeleBot(TOKEN)
 
 # অ্যাডমিন কনফিগারেশন
