@@ -827,15 +827,15 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
 
     if is_protocol:
         for _ in range(qty):
+            # Check if zip files stock is available
+            while len(zip_list) > 0 and len(zip_list[0].get("extracted_files", [])) == 0:
+                zip_list.pop(0)
+
             if len(zip_list) > 0:
                 zip_item = zip_list[0]
                 orig_zip_bytes = bytes(zip_item["zip_bytes"])
                 tfa_code = zip_item["2fa"]
                 files_in_zip = zip_item["extracted_files"]
-                
-                if len(files_in_zip) == 0:
-                    zip_list.pop(0)
-                    break
                 
                 target_file_name = files_in_zip.pop(0)
                 
@@ -857,14 +857,12 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 user_purchases[user_id].append(purchase_record)
                 save_database()
                 
-                bot.send_message(chat_id, f"✅ **Purchase Successful!**\n\n🌍 Country: {item_key}\n🔐 2FA & ZIP Password: `{tfa_code}`\n💵 Paid: ${price_per_unit:.2f}\n\nRemaining Balance: ${user_balances[user_id]:.2f}", parse_mode="Markdown")
-                
                 file_short_name = os.path.basename(target_file_name)
                 bot.send_document(
                     chat_id, 
                     document=single_zip_buffer, 
                     visible_file_name=f"{item_key}_{file_short_name}.zip",
-                    caption=f"📦 Your Password-Protected ZIP File\n🔐 Password (2FA): `{tfa_code}`", 
+                    caption=f"✅ **Purchase Successful!**\n\n🌍 Country: {item_key}\n📦 File: `{file_short_name}`\n🔐 2FA & ZIP Password: `{tfa_code}`\n💵 Paid: ${price_per_unit:.2f}\n\nRemaining Balance: ${user_balances[user_id]:.2f}", 
                     parse_mode="Markdown",
                     reply_markup=get_main_menu_keyboard(user_id)
                 )
@@ -888,6 +886,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                     f"Remaining Balance: ${user_balances[user_id]:.2f}"
                 )
                 bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+        save_database()
     elif is_sub:
         p_cat, s_item = parts
         sub_dict = product_inventory[p_cat]["items"][s_item]
@@ -931,6 +930,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                     f"Remaining Balance: ${user_balances[user_id]:.2f}"
                 )
                 bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+        save_database()
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_inline_clicks(call):
