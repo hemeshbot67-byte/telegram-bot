@@ -15,7 +15,7 @@ TOKEN = '9046269011:AAFdE0wDt8Tzg-95R6qkUCJE0HgafP-vEEA'
 bot = telebot.TeleBot(TOKEN)
 
 # অ্যাডমিন কনফিগারেশন
-ADMIN_ID = 6911427937  # আপনার আইডি
+ADMIN_ID = 8516400686  # নতুন অ্যাডমিন আইডি
 ADMIN_PASSWORD = "101010"  # এডমিন পাসওয়ার্ড
 
 # ── Firebase Realtime Database Setup (Render Safe) ──
@@ -116,7 +116,7 @@ LANG = {
         "deposit": "Select amount (USDT):",
         "refer": "👥 **Refer & Earn Program**\n────────────────────────\nRefer our bot to your friends and earn an attractive bonus for each referral!\n\n🔗 **Your Referral Link:**\n`{referral_link}`\n\n📊 **Total Referrals:** {total_referrals} users\n💡 Copy this link and share it with your friends.",
         "history": "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:",
-        "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 @longzu01",
+        "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 ",
         "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
         "language": "🌐 **Language Settings / 语言设置**\n\nPlease select your preferred language:",
         "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:"
@@ -128,8 +128,8 @@ LANG = {
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
         "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
-        "history": "目 **历史菜单**\n──────────────────────\请选择您要查看的历史记录：",
-        "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @longzu01",
+        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
+        "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 ",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
         "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项："
@@ -1022,7 +1022,7 @@ def handle_inline_clicks(call):
         support_text = (
             "⭐ **Telegram Premium Support**\n\n"
             "To purchase or get Telegram Premium, please contact our support admin directly:\n"
-            "👉 **@longzu01**"
+            "👉 "
         )
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
