@@ -11,7 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
-TOKEN = '9046269011:AAFdE0wDt8Tzg-95R6qkUCJE0HgafP-vEEA'
+TOKEN = '9046269011:AAGXopEpVyAvo7S9zD0K6MhVUQUiigvLcss'
 bot = telebot.TeleBot(TOKEN)
 
 # অ্যাডমিন কনফিগারেশন
