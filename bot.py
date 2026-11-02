@@ -11,11 +11,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
-TOKEN = '9046269011:AAGXopEpVyAvo7S9zD0K6MhVUQUiigvLcss'
+TOKEN = '9046269011:AAFi0SycvgI4nddINlH8a892c1XY-GQFN18'
 bot = telebot.TeleBot(TOKEN)
 
 # ── একাধিক অ্যাডমিন কনফিগারেশন ──
-ADMIN_IDS = [8516400686]  # আইডি রিমুভ করা হয়েছে
+ADMIN_IDS = [8516400686]  # নির্দিষ্ট আইডি রিমুভ করা হয়েছে
 ADMIN_PASSWORD = "101010"  # এডমিন পাসওয়ার্ড
 
 def is_admin(user_id):
