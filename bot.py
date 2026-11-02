@@ -16,7 +16,6 @@ bot = telebot.TeleBot(TOKEN)
 
 # অ্যাডমিন কনফিগারেশন
 ADMIN_ID = 6911427937  # আপনার আইডি
-ADMIN_PASSWORD = "101010" # অ্যাডমিন প্যানেল পাসওয়ার্ড
 
 # ── Firebase Realtime Database Setup (Render Safe) ──
 firebase_config_json = os.environ.get("FIREBASE_CONFIG_JSON")
@@ -336,9 +335,8 @@ def send_welcome(message):
 @bot.message_handler(commands=['admin'])
 def admin_command(message):
     if message.from_user.id == ADMIN_ID:
-        user_states[message.from_user.id] = "waiting_for_admin_password"
-        save_database()
-        bot.send_message(message.chat.id, "🔐 Please enter the Admin Password to access the panel:")
+        lang_code = get_lang(message.from_user.id)
+        bot.send_message(message.chat.id, LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
     else:
         bot.send_message(message.chat.id, "❌ You are not authorized to access the Admin Panel.")
 
@@ -381,20 +379,6 @@ def handle_all_messages(message):
     if user_id not in user_deposits:
         user_deposits[user_id] = []
     save_database()
-
-    if user_states.get(user_id) == "waiting_for_admin_password":
-        if user_id == ADMIN_ID:
-            entered_pass = message.text.strip()
-            if entered_pass == ADMIN_PASSWORD:
-                user_states.pop(user_id, None)
-                save_database()
-                lang_code = get_lang(user_id)
-                bot.send_message(message.chat.id, "✅ Password correct!\n\n" + LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
-            else:
-                bot.send_message(message.chat.id, "❌ Incorrect password! Type /admin again to retry.")
-                user_states.pop(user_id, None)
-                save_database()
-        return
 
     if user_states.get(user_id) == "waiting_for_new_category_name":
         if user_id == ADMIN_ID:
@@ -740,9 +724,8 @@ def handle_all_messages(message):
 
     if text == "🛠️ Admin Panel":
         if user_id == ADMIN_ID:
-            user_states[user_id] = "waiting_for_admin_password"
-            save_database()
-            bot.send_message(message.chat.id, "🔐 Please enter the Admin Password to access the panel:")
+            lang_code = get_lang(user_id)
+            bot.send_message(message.chat.id, LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
         else:
             bot.send_message(message.chat.id, "❌ Access denied.")
         return
@@ -1409,9 +1392,11 @@ def handle_inline_clicks(call):
             bot.answer_callback_query(call.id, "❌ Minimum deposit for Binance Pay is $2.00!", show_alert=True)
             return
 
-        calculated_binance = current_amount * (10.042 / 10.0)
+        order_id = f"ORD-{random.randint(100000000000, 999999999999):X}"
+        rand_suffix = random.randint(1, 999) / 10000.0  # ছবির মতো ইউনিক দশমিক তৈরি করবে
+        calculated_binance = current_amount + rand_suffix
         send_val_str = f"{calculated_binance:.3f} USDT"
-        order_id = f"ORD-B{random.randint(10000000, 99999999):X}"
+        
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         
         temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": "Binance Pay · USDT"}
@@ -1420,7 +1405,7 @@ def handle_inline_clicks(call):
         save_database()
 
         binance_order_text = (
-            "[ ORDER CREATED ]  Binance Pay · USDT\n"
+            f"[ ORDER CREATED ] Binance Pay · USDT\n"
             "──────────────────────\n"
             f"  Send     ·  `{send_val_str}`\n"
             f"  Credit   ·  ${current_amount:.2f}\n"
@@ -1472,7 +1457,8 @@ def handle_inline_clicks(call):
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         
         if call.data == "order_usdt_trc20":
-            calculated_val = current_amount * (10.036 / 10.0)
+            rand_suffix = random.randint(1, 999) / 10000.0
+            calculated_val = current_amount + rand_suffix
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "USDT · TRC20"
@@ -1480,7 +1466,9 @@ def handle_inline_clicks(call):
             network_name = "Tron(Trc20)"
             net_code = "tron"
         elif call.data == "order_trx":
-            calculated_trx = current_amount * (31.978 / 10.0)
+            # TRX এর জন্য ছবি অনুযায়ী একটু বেশি মাল্টিপ্লায়ার বা রেন্ডম ভ্যালু যোগ করা হয়েছে
+            rand_suffix = random.randint(100, 999) / 1000.0
+            calculated_trx = (current_amount * 3.1) + rand_suffix
             send_val = f"{calculated_trx:.3f} TRX"
             credit_val = f"${current_amount:.2f}"
             currency_type = "TRX · TRON"
@@ -1488,7 +1476,8 @@ def handle_inline_clicks(call):
             network_name = "TRON"
             net_code = "tron"
         elif call.data == "order_usdt_bep20":
-            calculated_val = current_amount * (10.029 / 10.0)
+            rand_suffix = random.randint(1, 999) / 10000.0
+            calculated_val = current_amount + rand_suffix
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "USDT · BEP20"
@@ -1496,7 +1485,8 @@ def handle_inline_clicks(call):
             network_name = "BNB Smart Chain (BEP20)"
             net_code = "bsc"
         else:
-            calculated_bnb = current_amount * (0.014263 / 10.0)
+            rand_suffix = random.randint(1, 999) / 100000.0
+            calculated_bnb = (current_amount * 0.00145) + rand_suffix
             send_val = f"{calculated_bnb:.6f} BNB"
             credit_val = f"${current_amount:.2f}"
             currency_type = "BNB · BSC"
@@ -1510,7 +1500,7 @@ def handle_inline_clicks(call):
         save_database()
 
         order_text = (
-            "[ ORDER CREATED ]  " + currency_type + "\n"
+            f"[ ORDER CREATED ]  {currency_type}\n"
             "──────────────────────\n"
             f"  Send     ·  `{send_val}`\n"
             f"  Credit   ·  {credit_val}\n"
@@ -1645,7 +1635,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server = HTTPServer(('0.0.0.0', port), SimpleHeader if 'SimpleHeader' in globals() else SimpleHandler)
     server.serve_forever()
 
 if __name__ == '__main__':
