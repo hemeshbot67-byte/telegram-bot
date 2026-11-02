@@ -429,6 +429,24 @@ def handle_all_messages(message):
             save_database()
         return
 
+    # কান্ট্রি রিনেম হ্যান্ডলার
+    if user_states.get(user_id, "").startswith("waiting_for_rename_country_"):
+        if is_admin(user_id):
+            old_country = user_states.get(user_id).replace("waiting_for_rename_country_", "")
+            new_country = message.text.strip().capitalize()
+            proto_items = product_inventory["Telegram Protocol"]["items"]
+            if new_country in proto_items:
+                bot.send_message(message.chat.id, f"⚠️ Country **{new_country}** already exists!")
+            elif old_country in proto_items:
+                proto_items[new_country] = proto_items.pop(old_country)
+                save_database()
+                bot.send_message(message.chat.id, f"✅ Successfully renamed country **{old_country}** to **{new_country}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+            else:
+                bot.send_message(message.chat.id, "❌ Country not found.")
+            user_states.pop(user_id, None)
+            save_database()
+        return
+
     if user_states.get(user_id, "").startswith("waiting_for_subcat_name_"):
         if is_admin(user_id):
             parent_cat = user_states.get(user_id).replace("waiting_for_subcat_name_", "")
@@ -1201,6 +1219,7 @@ def handle_inline_clicks(call):
             if cat_name == "Telegram Protocol":
                 markup.add(types.InlineKeyboardButton("➕ Add New Country Telegram (Protocol)", callback_data="admin_add_country"))
                 markup.add(types.InlineKeyboardButton("🗂️ Add Zip File Stock (Protocol)", callback_data="admin_add_zip_menu"))
+                markup.add(types.InlineKeyboardButton("✏️ Edit & Delete Countries", callback_data="admin_edit_delete_countries_menu"))
                 markup.add(types.InlineKeyboardButton("─── Country Prices Manage ───", callback_data="noop"))
                 for c_name in product_inventory["Telegram Protocol"]["items"].keys():
                     markup.add(types.InlineKeyboardButton(f"💵 Edit Price: {c_name}", callback_data=f"admin_edit_protocol_price_{c_name}"))
@@ -1225,6 +1244,62 @@ def handle_inline_clicks(call):
                 bot.edit_message_text(f"📁 **Category:** `{cat_name}`\nChoose an action:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
             except Exception:
                 pass
+        return
+
+    # Telegram Protocol এর কান্ট্রি এডিট/ডিলিট মেনু
+    elif call.data == "admin_edit_delete_countries_menu":
+        if is_admin(user_id):
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            proto_items = product_inventory.get("Telegram Protocol", {}).get("items", {})
+            if proto_items:
+                for c_name in proto_items.keys():
+                    markup.add(
+                        types.InlineKeyboardButton(f"✏️ Rename: {c_name}", callback_data=f"admin_rename_country_{c_name}"),
+                        types.InlineKeyboardButton(f"❌ Delete: {c_name}", callback_data=f"admin_delete_country_{c_name}")
+                    )
+            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_manage_cat_Telegram Protocol"))
+            bot.answer_callback_query(call.id, "Countries Edit/Delete")
+            try:
+                bot.edit_message_text("🌐 **Manage Telegram Protocol Countries:**\nSelect a country to Rename or Delete:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except Exception:
+                pass
+        return
+
+    elif call.data.startswith("admin_rename_country_"):
+        if is_admin(user_id):
+            country_name = call.data.replace("admin_rename_country_", "")
+            user_states[user_id] = f"waiting_for_rename_country_{country_name}"
+            save_database()
+            bot.answer_callback_query(call.id, f"Rename {country_name}")
+            try:
+                bot.edit_message_text(f"✏️ Enter new name for country **{country_name}**:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
+
+    elif call.data.startswith("admin_delete_country_"):
+        if is_admin(user_id):
+            country_name = call.data.replace("admin_delete_country_", "")
+            proto_items = product_inventory.get("Telegram Protocol", {}).get("items", {})
+            if country_name in proto_items:
+                del proto_items[country_name]
+                save_database()
+                bot.answer_callback_query(call.id, f"Deleted {country_name}")
+                
+                # রিফ্রেশ করে আবার কান্ট্রি লিস্ট দেখানো
+                markup = types.InlineKeyboardMarkup(row_width=1)
+                for c in proto_items.keys():
+                    markup.add(
+                        types.InlineKeyboardButton(f"✏️ Rename: {c}", callback_data=f"admin_rename_country_{c}"),
+                        types.InlineKeyboardButton(f"❌ Delete: {c}", callback_data=f"admin_delete_country_{c}")
+                    )
+                markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_manage_cat_Telegram Protocol"))
+                try:
+                    bot.edit_message_text(f"✅ Country **{country_name}** deleted successfully!\n\n🌐 **Manage Telegram Protocol Countries:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                except Exception:
+                    pass
+            else:
+                bot.answer_callback_query(call.id, "Country not found", show_alert=True)
         return
 
     elif call.data.startswith("admin_edit_protocol_price_"):
