@@ -128,7 +128,7 @@ LANG = {
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
         "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
-        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
+        "history": "目 **历史菜单**\n──────────────────────\请选择您要查看的历史记录：",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @longzu01",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
@@ -1409,7 +1409,6 @@ def handle_inline_clicks(call):
             bot.answer_callback_query(call.id, "❌ Minimum deposit for Binance Pay is $2.00!", show_alert=True)
             return
 
-        # আপডেট করা মান: 10.082
         calculated_binance = current_amount * (10.082 / 10.0)
         send_val_str = f"{calculated_binance:.3f} USDT"
         order_id = f"ORD-B{random.randint(10000000, 99999999):X}"
@@ -1473,7 +1472,6 @@ def handle_inline_clicks(call):
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         
         if call.data == "order_usdt_trc20":
-            # আপডেট করা মান: 10.016
             calculated_val = current_amount * (10.016 / 10.0)
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
@@ -1482,7 +1480,6 @@ def handle_inline_clicks(call):
             network_name = "Tron(Trc20)"
             net_code = "tron"
         elif call.data == "order_trx":
-            # আপডেট করা মান: 31.495
             calculated_trx = current_amount * (31.495 / 10.0)
             send_val = f"{calculated_trx:.3f} TRX"
             credit_val = f"${current_amount:.2f}"
@@ -1491,7 +1488,6 @@ def handle_inline_clicks(call):
             network_name = "TRON"
             net_code = "tron"
         elif call.data == "order_usdt_bep20":
-            # আপডেট করা মান: 10.076
             calculated_val = current_amount * (10.076 / 10.0)
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
@@ -1500,7 +1496,6 @@ def handle_inline_clicks(call):
             network_name = "BNB Smart Chain (BEP20)"
             net_code = "bsc"
         else:
-            # আপডেট করা মান: 0.014249
             calculated_bnb = current_amount * (0.014249 / 10.0)
             send_val = f"{calculated_bnb:.6f} BNB"
             credit_val = f"${current_amount:.2f}"
