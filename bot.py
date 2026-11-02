@@ -15,7 +15,7 @@ TOKEN = '9046269011:AAGXopEpVyAvo7S9zD0K6MhVUQUiigvLcss'
 bot = telebot.TeleBot(TOKEN)
 
 # ── একাধিক অ্যাডমিন কনফিগারেশন ──
-ADMIN_IDS = [8516400686, 8138758919]  # একাধিক অ্যাডমিন আইডি
+ADMIN_IDS = [8516400686]  # আইডি রিমুভ করা হয়েছে
 ADMIN_PASSWORD = "101010"  # এডমিন পাসওয়ার্ড
 
 def is_admin(user_id):
@@ -131,7 +131,7 @@ LANG = {
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
         "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
-        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
+        "history": "目 **历史菜单**\n──────────────────────\nPlease select which history you want to view:",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 ",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
