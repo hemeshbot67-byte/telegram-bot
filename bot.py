@@ -1409,7 +1409,8 @@ def handle_inline_clicks(call):
             bot.answer_callback_query(call.id, "❌ Minimum deposit for Binance Pay is $2.00!", show_alert=True)
             return
 
-        calculated_binance = current_amount * (10.055 / 10.0)
+        # আপডেট করা মান: 10.082
+        calculated_binance = current_amount * (10.082 / 10.0)
         send_val_str = f"{calculated_binance:.3f} USDT"
         order_id = f"ORD-B{random.randint(10000000, 99999999):X}"
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -1472,7 +1473,8 @@ def handle_inline_clicks(call):
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         
         if call.data == "order_usdt_trc20":
-            calculated_val = current_amount * (10.040 / 10.0)
+            # আপডেট করা মান: 10.016
+            calculated_val = current_amount * (10.016 / 10.0)
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "USDT · TRC20"
@@ -1480,7 +1482,8 @@ def handle_inline_clicks(call):
             network_name = "Tron(Trc20)"
             net_code = "tron"
         elif call.data == "order_trx":
-            calculated_trx = current_amount * (30.480 / 10.0)
+            # আপডেট করা মান: 31.495
+            calculated_trx = current_amount * (31.495 / 10.0)
             send_val = f"{calculated_trx:.3f} TRX"
             credit_val = f"${current_amount:.2f}"
             currency_type = "TRX · TRON"
@@ -1488,7 +1491,8 @@ def handle_inline_clicks(call):
             network_name = "TRON"
             net_code = "tron"
         elif call.data == "order_usdt_bep20":
-            calculated_val = current_amount * (10.055 / 10.0)
+            # আপডেট করা মান: 10.076
+            calculated_val = current_amount * (10.076 / 10.0)
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "USDT · BEP20"
@@ -1496,7 +1500,8 @@ def handle_inline_clicks(call):
             network_name = "BNB Smart Chain (BEP20)"
             net_code = "bsc"
         else:
-            calculated_bnb = current_amount * (0.014515 / 10.0)
+            # আপডেট করা মান: 0.014249
+            calculated_bnb = current_amount * (0.014249 / 10.0)
             send_val = f"{calculated_bnb:.6f} BNB"
             credit_val = f"${current_amount:.2f}"
             currency_type = "BNB · BSC"
