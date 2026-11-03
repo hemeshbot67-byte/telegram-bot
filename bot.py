@@ -75,9 +75,15 @@ def load_database():
         print(f"Error loading database from Firebase: {e}")
         return DEFAULT_DATABASE
 
-# ডাটা সেভ করার ফাংশন (Firebase এ)
-def save_database():
+# অপ্টিমাইজড সেভ ফাংশন (ব্যাকগ্রাউন্ডে নির্দিষ্ট নোড আপডেট করার জন্য)
+def _async_save(path, data):
     try:
+        db.reference(path).set(data)
+    except Exception as e:
+        print(f"Error saving to Firebase ({path}): {e}")
+
+def save_database(path="/", data=None):
+    if data is None:
         data = {
             "user_amounts": {str(k): v for k, v in user_amounts.items()},
             "user_states": {str(k): v for k, v in user_states.items()},
@@ -90,10 +96,8 @@ def save_database():
             "all_users": list(all_users),
             "product_inventory": product_inventory
         }
-        ref = db.reference('/')
-        ref.set(data)
-    except Exception as e:
-        print(f"Error saving database to Firebase: {e}")
+    # ব্যাকগ্রাউন্ড থ্রেডে ফায়ারবেস আপডেট করার ফলে বট ফ্রিজ বা স্লো হবে না
+    threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
 
 # ডাটা ইনিশিয়ালাইজেশন
 db_data = load_database()
