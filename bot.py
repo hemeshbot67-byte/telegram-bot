@@ -1722,11 +1722,25 @@ def handle_inline_clicks(call):
             pass
         send_welcome(call.message)
 
+# ── Webhook Handler Server Setup (Render Safe) ──
 class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self,):
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length)
+        try:
+            json_string = post_data.decode('utf-8')
+            update = telebot.types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+        except Exception as e:
+            print(f"Error processing update: {e}")
+            
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is alive!")
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive via Webhook!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
@@ -1737,5 +1751,18 @@ if __name__ == '__main__':
     threading.Thread(target=run_web_server, daemon=True).start()
     
     set_bot_commands(bot)
-    print("Bot is running perfectly with Firebase Realtime Database and Port Keep-Alive...")
-    bot.infinity_polling()
+    
+    # অটোমেটিক ওয়েবুক সেটআপ
+    RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
+    if RENDER_URL:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{RENDER_URL}/")
+        print(f"Webhook set to: {RENDER_URL}/")
+    else:
+        print("RENDER_EXTERNAL_URL not found, please check your Render environment variables.")
+        
+    print("Bot is running with Webhook and Firebase Realtime Database...")
+    
+    import time
+    while True:
+        time.sleep(10)
