@@ -14,14 +14,12 @@ from firebase_admin import credentials, db
 TOKEN = '9046269011:AAEBYEFeyTAL-G7ju6L0OSk-y969HHthDfs'
 bot = telebot.TeleBot(TOKEN)
 
-# ── একাধিক অ্যাডমিন কনফিগারেশন ──
-ADMIN_IDS = [8516400686]  # নির্দিষ্ট আইডি 
-ADMIN_PASSWORD = "101010"  # এডমিন পাসওয়ার্ড
+ADMIN_IDS = [8516400686]
+ADMIN_PASSWORD = "101010"
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-# ── Firebase Realtime Database Setup (Render Safe) ──
 firebase_config_json = os.environ.get("FIREBASE_CONFIG_JSON")
 
 if firebase_config_json:
@@ -34,7 +32,6 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://telegrambotdb-e08fd-default-rtdb.firebaseio.com'
 })
 
-# ডিফল্ট ডাটা স্ট্রাকচার
 DEFAULT_DATABASE = {
     "user_amounts": {},
     "user_states": {},
@@ -62,7 +59,6 @@ DEFAULT_DATABASE = {
     }
 }
 
-# ডাটা লোড করার ফাংশন (Firebase থেকে)
 def load_database():
     try:
         ref = db.reference('/')
@@ -75,7 +71,6 @@ def load_database():
         print(f"Error loading database from Firebase: {e}")
         return DEFAULT_DATABASE
 
-# অপ্টিমাইজড সেভ ফাংশন (ব্যাকগ্রাউন্ডে নির্দিষ্ট নোড আপডেট করার জন্য)
 def _async_save(path, data):
     try:
         db.reference(path).set(data)
@@ -98,7 +93,6 @@ def save_database(path="/", data=None):
         }
     threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
 
-# ডাটা ইনিশিয়ালাইজেশন
 db_data = load_database()
 user_amounts = {int(k): v for k, v in db_data.get("user_amounts", {}).items()}
 user_states = {int(k): v for k, v in db_data.get("user_states", {}).items()}
@@ -112,11 +106,11 @@ all_users = set(int(u) for u in db_data.get("all_users", []))
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
-# ভাষার ডিকশনারি (Texts & Menu Buttons)
+# ভাষার ডিকশনারি (English & Chinese Translations)
 LANG = {
     "en": {
         "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
-        "dashboard": "📊 **Dashboard & Price List**\n\nHere is the overview of all available product prices and your dashboard info:",
+        "dashboard": "📊 **Dashboard & Price List**\n\nHere is the current inventory and price list of all products:",
         "products": "📁 **Select a product category:**",
         "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nReferrals  ·  {total_refs} users\nPurchased  ·  ${purchased_total}",
         "deposit": "Select amount (USDT):",
@@ -126,7 +120,7 @@ LANG = {
         "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
         "language": "🌐 **Language Settings / 语言设置**\n\nPlease select your preferred language:",
         "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:",
-        # Reply Menu Buttons (English)
+        # Menu Buttons
         "menu_dashboard": "📊 Dashboard",
         "menu_products": "◆ Products",
         "menu_account": "◆ My Account",
@@ -136,21 +130,29 @@ LANG = {
         "menu_support": "Support",
         "menu_lang": "🌐 Language",
         "menu_search": "🔍 Search",
-        "menu_admin": "🛠️ Admin Panel"
+        "menu_admin": "🛠️ Admin Panel",
+        # UI Labels
+        "select_qty": "🔢 **Select Quantity:**\n\nChoose how many items you want to buy:",
+        "select_country": "🌍 **Select a country & phone code:**",
+        "back": "< Back",
+        "main_menu": "< Main Menu",
+        "other_amt": "Other Amount",
+        "cancel": "< Cancel",
+        "stock": "Stock"
     },
     "zh": {
         "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
-        "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有可用产品价格和您的仪表盘信息概述：",
+        "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有可用产品的当前库存和价格表：",
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
-        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_referrals} 用户\n💡 复制此链接并与您的朋友分享。",
+        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
         "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @tianpeng7777",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
         "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项：",
-        # Reply Menu Buttons (Chinese)
+        # Menu Buttons
         "menu_dashboard": "📊 仪表盘",
         "menu_products": "◆ 产品中心",
         "menu_account": "◆ 我的账户",
@@ -160,7 +162,15 @@ LANG = {
         "menu_support": "客服支持",
         "menu_lang": "🌐 语言设置",
         "menu_search": "🔍 搜索产品",
-        "menu_admin": "🛠️ 管理面板"
+        "menu_admin": "🛠️ 管理面板",
+        # UI Labels
+        "select_qty": "🔢 **选择数量：**\n\n请选择您要购买的数量：",
+        "select_country": "🌍 **选择国家及电话区号：**",
+        "back": "< 返回",
+        "main_menu": "< 主菜单",
+        "other_amt": "其他金额",
+        "cancel": "< 取消",
+        "stock": "库存"
     }
 }
 
@@ -192,7 +202,8 @@ def get_main_menu_keyboard(user_id):
         markup.add(types.KeyboardButton(t["menu_admin"]))
     return markup
 
-def get_select_amount_keyboard():
+def get_select_amount_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
         types.InlineKeyboardButton("2", callback_data="amt_2"),
@@ -201,56 +212,61 @@ def get_select_amount_keyboard():
         types.InlineKeyboardButton("20", callback_data="amt_20"),
         types.InlineKeyboardButton("50", callback_data="amt_50"),
         types.InlineKeyboardButton("100", callback_data="amt_100"),
-        types.InlineKeyboardButton("Other Amount", callback_data="amt_other"),
-        types.InlineKeyboardButton("< Cancel", callback_data="dep_cancel")
+        types.InlineKeyboardButton(t["other_amt"], callback_data="amt_other"),
+        types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
     )
     return markup
 
-def get_payment_methods_keyboard():
+def get_payment_methods_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("💛 Binance Pay (Min $2)", callback_data="pay_binance"),
         types.InlineKeyboardButton("💎 Tron Network (Min $3)", callback_data="pay_tron_menu"),
         types.InlineKeyboardButton("🪙 Bsc Network (BEP20) (Min $3)", callback_data="pay_bsc_menu"),
-        types.InlineKeyboardButton("< Cancel", callback_data="dep_cancel")
+        types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
     )
     return markup
 
-def get_tron_subfolders_keyboard():
+def get_tron_subfolders_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("💵 USDT (TRC20) — Min $3", callback_data="order_usdt_trc20"),
         types.InlineKeyboardButton("💎 TRX (Tron) — Min $3", callback_data="order_trx"),
-        types.InlineKeyboardButton("< Back", callback_data="dep_confirm")
+        types.InlineKeyboardButton(t["back"], callback_data="dep_confirm")
     )
     return markup
 
-def get_bsc_subfolders_keyboard():
+def get_bsc_subfolders_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("💵 USDT (BEP20) — Min $3", callback_data="order_usdt_bep20"),
         types.InlineKeyboardButton("🪙 BNB (BEP20) — Min $3", callback_data="order_bnb"),
-        types.InlineKeyboardButton("< Back", callback_data="dep_confirm")
+        types.InlineKeyboardButton(t["back"], callback_data="dep_confirm")
     )
     return markup
 
-def get_order_created_keyboard(net_code, order_id):
+def get_order_created_keyboard(net_code, order_id, user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("📤 Send Order Id / TxID", callback_data=f"send_order_id_{order_id}")
     )
     if net_code == "tron":
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="pay_tron_menu"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="pay_tron_menu"))
     elif net_code == "bsc":
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="pay_bsc_menu"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="pay_bsc_menu"))
     elif net_code == "binance":
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="dep_confirm"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="dep_confirm"))
     else:
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="dep_confirm"))
-    markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="dep_confirm"))
+    markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
     return markup
 
-def get_quantity_keyboard(item_key):
+def get_quantity_keyboard(item_key, user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
         types.InlineKeyboardButton("1", callback_data=f"qty_{item_key}_1"),
@@ -259,20 +275,22 @@ def get_quantity_keyboard(item_key):
         types.InlineKeyboardButton("5", callback_data=f"qty_{item_key}_5"),
         types.InlineKeyboardButton("10", callback_data=f"qty_{item_key}_10"),
         types.InlineKeyboardButton("Other Quantity", callback_data=f"qty_other_{item_key}"),
-        types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu")
+        types.InlineKeyboardButton(t["back"], callback_data="back_to_products_menu")
     )
     return markup
 
-def get_history_menu_keyboard():
+def get_history_menu_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("📦 Purchase History", callback_data="hist_purchase"),
         types.InlineKeyboardButton("💰 Deposit History", callback_data="hist_deposit"),
-        types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu")
+        types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu")
     )
     return markup
 
-def get_products_categories_keyboard():
+def get_products_categories_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     for cat_name in product_inventory.keys():
         if cat_name == "Telegram Protocol":
@@ -295,10 +313,11 @@ def get_products_categories_keyboard():
             cb = f"prod_subcat_menu_{cat_name}"
         
         markup.add(types.InlineKeyboardButton(f"{emoji} {cat_name}", callback_data=cb))
-    markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
+    markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
     return markup
 
-def get_products_countries_keyboard():
+def get_products_countries_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     if "Telegram Protocol" in product_inventory and "items" in product_inventory["Telegram Protocol"]:
         for country, data in product_inventory["Telegram Protocol"]["items"].items():
@@ -306,29 +325,31 @@ def get_products_countries_keyboard():
             zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
             total_stock = len(data.get("accounts", [])) + zip_stock_count
             
-            btn_text = f"🌐 {country} ({c_code}) — Stock: {total_stock}"
+            btn_text = f"🌐 {country} ({c_code}) — {t['stock']}: {total_stock}"
             markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"select_country_{country}"))
             
-    markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
+    markup.add(types.InlineKeyboardButton(t["back"], callback_data="back_to_products_menu"))
     return markup
 
-def get_language_keyboard():
+def get_language_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
         types.InlineKeyboardButton("🇨🇳 China (中文)", callback_data="lang_zh")
     )
-    markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
+    markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
     return markup
 
-def get_admin_panel_keyboard():
+def get_admin_panel_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton("📢 Broadcast Message", callback_data="admin_broadcast_start"),
         types.InlineKeyboardButton("➕ Add New Product Category", callback_data="admin_add_category"),
         types.InlineKeyboardButton("📦 Add Stock & Price", callback_data="admin_add_accounts"),
         types.InlineKeyboardButton("✏️ Edit / Delete Categories", callback_data="admin_edit_delete_cat_menu"),
-        types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu")
+        types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu")
     )
     return markup
 
@@ -413,15 +434,16 @@ def handle_all_messages(message):
         user_deposits[user_id] = []
     save_database()
 
-    # এডমিন পাসওয়ার্ড চেক হ্যান্ডলার
+    lang_code = get_lang(user_id)
+    t = LANG[lang_code]
+
     if user_states.get(user_id) == "waiting_for_admin_password":
         if is_admin(user_id):
             entered_pass = message.text.strip()
             user_states.pop(user_id, None)
             save_database()
             if entered_pass == ADMIN_PASSWORD:
-                lang_code = get_lang(user_id)
-                bot.send_message(message.chat.id, "✅ Password correct!\n\n" + LANG[lang_code]["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, "✅ Password correct!\n\n" + t["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Incorrect password! Access denied.", reply_markup=get_main_menu_keyboard(user_id))
         return
@@ -434,7 +456,7 @@ def handle_all_messages(message):
             else:
                 product_inventory[new_cat_name] = {"type": "sub_categories", "items": {}}
                 save_database()
-                bot.send_message(message.chat.id, f"✅ Successfully added new product category: **{new_cat_name}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, f"✅ Successfully added new product category: **{new_cat_name}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
             save_database()
         return
@@ -447,7 +469,7 @@ def handle_all_messages(message):
                 if country_name in product_inventory["Telegram Protocol"]["items"]:
                     product_inventory["Telegram Protocol"]["items"][country_name]["price"] = new_price
                     save_database()
-                    bot.send_message(message.chat.id, f"✅ Successfully updated price for **{country_name}** to **${new_price:.2f}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                    bot.send_message(message.chat.id, f"✅ Successfully updated price for **{country_name}** to **${new_price:.2f}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 else:
                     bot.send_message(message.chat.id, "❌ Country not found.")
             except ValueError:
@@ -466,7 +488,7 @@ def handle_all_messages(message):
             elif old_country in proto_items:
                 proto_items[new_country] = proto_items.pop(old_country)
                 save_database()
-                bot.send_message(message.chat.id, f"✅ Successfully renamed country **{old_country}** to **{new_country}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, f"✅ Successfully renamed country **{old_country}** to **{new_country}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Country not found.")
             user_states.pop(user_id, None)
@@ -485,7 +507,7 @@ def handle_all_messages(message):
                 else:
                     product_inventory[parent_cat]["items"][sub_name] = {"price": 1.00, "accounts": []}
                     save_database()
-                    bot.send_message(message.chat.id, f"✅ Successfully created sub-folder **{sub_name}** inside **{parent_cat}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                    bot.send_message(message.chat.id, f"✅ Successfully created sub-folder **{sub_name}** inside **{parent_cat}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
             save_database()
         return
@@ -499,7 +521,7 @@ def handle_all_messages(message):
             elif old_name in product_inventory:
                 product_inventory[new_name] = product_inventory.pop(old_name)
                 save_database()
-                bot.send_message(message.chat.id, f"✅ Successfully renamed **{old_name}** to **{new_name}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, f"✅ Successfully renamed **{old_name}** to **{new_name}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Category not found.")
             user_states.pop(user_id, None)
@@ -519,7 +541,7 @@ def handle_all_messages(message):
                 elif old_sub in product_inventory[parent_cat]["items"]:
                     product_inventory[parent_cat]["items"][new_sub] = product_inventory[parent_cat]["items"].pop(old_sub)
                     save_database()
-                    bot.send_message(message.chat.id, f"✅ Successfully renamed sub-folder **{old_sub}** to **{new_sub}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                    bot.send_message(message.chat.id, f"✅ Successfully renamed sub-folder **{old_sub}** to **{new_sub}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 else:
                     bot.send_message(message.chat.id, "❌ Sub-folder not found.")
             user_states.pop(user_id, None)
@@ -551,7 +573,7 @@ def handle_all_messages(message):
                         added_count += 1
                         
                 save_database()
-                bot.send_message(message.chat.id, f"✅ Successfully updated **{target_key}**!\n💰 Price: ${price_val:.2f}\n📦 Added Items: {added_count}", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, f"✅ Successfully updated **{target_key}**!\n💰 Price: ${price_val:.2f}\n📦 Added Items: {added_count}", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             except Exception:
                 bot.send_message(message.chat.id, "❌ Format error! First line must be price (e.g., `2.50`) and following lines should be account details.")
             user_states.pop(user_id, None)
@@ -618,7 +640,7 @@ def handle_all_messages(message):
                     found_any = True
 
         if found_any:
-            markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
+            markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
             bot.send_message(message.chat.id, f"🔍 **Search Results for '{query}':**", parse_mode="Markdown", reply_markup=markup)
         else:
             bot.send_message(message.chat.id, f"❌ No products or countries found matching '{query}'.", parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
@@ -645,7 +667,7 @@ def handle_all_messages(message):
             if c_name:
                 product_inventory["Telegram Protocol"]["items"][c_name] = {"code": c_code, "price": 1.00, "accounts": [], "zip_files": []}
                 save_database()
-                bot.send_message(message.chat.id, f"✅ Country **{c_name} ({c_code})** added successfully!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.send_message(message.chat.id, f"✅ Country **{c_name} ({c_code})** added successfully!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
             save_database()
         return
@@ -689,7 +711,7 @@ def handle_all_messages(message):
                 f"💰 **Selected Amount:** ${custom_amount:.2f}\n\n"
                 "Please select your preferred payment method:"
             )
-            bot.send_message(message.chat.id, payment_text, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard())
+            bot.send_message(message.chat.id, payment_text, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard(user_id))
         except ValueError:
             bot.send_message(message.chat.id, "❌ Invalid amount. Please enter a valid number (e.g., 5 or 10):")
         return
@@ -766,14 +788,14 @@ def handle_all_messages(message):
                             f"📁 Total valid files: `{len(valid_files)}`\n"
                             f"🔐 Password / 2FA: `{tfa_code}`", 
                             parse_mode="Markdown", 
-                            reply_markup=get_admin_panel_keyboard()
+                            reply_markup=get_admin_panel_keyboard(user_id)
                         )
                 except Exception as e:
                     bot.send_message(
                         message.chat.id, 
                         f"❌ **Password Error!** The password you provided is incorrect or the ZIP file is corrupted.\nError details: `{str(e)}`\nPlease upload the ZIP file again and enter the correct password.", 
                         parse_mode="Markdown",
-                        reply_markup=get_admin_panel_keyboard()
+                        reply_markup=get_admin_panel_keyboard(user_id)
                     )
             
             user_states.pop(user_id, None)
@@ -782,8 +804,6 @@ def handle_all_messages(message):
         return
 
     text = message.text if message.text else ""
-    lang_code = get_lang(user_id)
-    t = LANG[lang_code]
 
     if text in [t["menu_products"], t["menu_account"], t["menu_deposit"], t["menu_refer"], t["menu_history"], t["menu_support"], t["menu_lang"], t["menu_search"], t["menu_admin"], t["menu_dashboard"]]:
         user_states.pop(user_id, None)
@@ -799,60 +819,56 @@ def handle_all_messages(message):
         return
 
     if text == t["menu_dashboard"]:
-        dashboard_text = (
-            "📊 **Dashboard & Price List**\n"
-            "────────────────────────\n"
-            "Here is the current inventory and price list of all products:\n\n"
-        )
+        dashboard_text = t["dashboard"] + "\n\n"
         for cat_name, cat_data in product_inventory.items():
             dashboard_text += f"📂 **{cat_name}**\n"
             if cat_name == "Telegram Protocol" and "items" in cat_data:
                 for c_name, c_info in cat_data["items"].items():
                     zip_st = sum(len(zf.get("extracted_files", [])) for zf in c_info.get("zip_files", []))
                     total_st = len(c_info.get("accounts", [])) + zip_st
-                    dashboard_text += f"  • {c_name} ({c_info.get('code', '')}) — Price: ${c_info.get('price', 1.00):.2f} | Stock: {total_st}\n"
+                    dashboard_text += f"  • {c_name} ({c_info.get('code', '')}) — Price: ${c_info.get('price', 1.00):.2f} | {t['stock']}: {total_st}\n"
             elif "items" in cat_data:
                 for sub_n, sub_inf in cat_data["items"].items():
                     sub_st = len(sub_inf.get("accounts", []))
-                    dashboard_text += f"  • {sub_n} — Price: ${sub_inf.get('price', 1.00):.2f} | Stock: {sub_st}\n"
+                    dashboard_text += f"  • {sub_n} — Price: ${sub_inf.get('price', 1.00):.2f} | {t['stock']}: {sub_st}\n"
             elif "price" in cat_data:
                 st_count = len(cat_data.get("accounts", []))
-                dashboard_text += f"  • Price: ${cat_data.get('price', 1.00):.2f} | Stock: {st_count}\n"
+                dashboard_text += f"  • Price: ${cat_data.get('price', 1.00):.2f} | {t['stock']}: {st_count}\n"
             dashboard_text += "\n"
         
         bot.send_message(message.chat.id, dashboard_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
 
     elif text == t["menu_products"]:
-        bot.send_message(message.chat.id, LANG[lang_code]["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard())
+        bot.send_message(message.chat.id, t["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard(user_id))
     elif text == t["menu_deposit"]:
         user_states[user_id] = "waiting_for_deposit"
         save_database()
-        bot.send_message(message.chat.id, LANG[lang_code]["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
+        bot.send_message(message.chat.id, t["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
     elif text == t["menu_refer"]:
         bot_info = bot.get_me()
         bot_username = bot_info.username
         referral_link = f"https://t.me/{bot_username}?start={user_id}"
         total_referrals = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
-        referral_text = LANG[lang_code]["refer"].format(referral_link=referral_link, total_refs=total_referrals, total_referrals=total_referrals)
+        referral_text = t["refer"].format(referral_link=referral_link, total_refs=total_referrals, total_referrals=total_referrals)
         bot.send_message(message.chat.id, referral_text, parse_mode="Markdown")
     elif text == t["menu_history"]:
-        bot.send_message(message.chat.id, LANG[lang_code]["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard())
+        bot.send_message(message.chat.id, t["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard(user_id))
     elif text == t["menu_account"]:
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
         total_refs = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
         balance_val = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
         purchased_total = len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))
-        account_text = LANG[lang_code]["account"].format(user_id=user.id, username=username, balance=balance_val, total_refs=total_refs, purchased_total=purchased_total)
+        account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, total_refs=total_refs, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
     elif text == t["menu_lang"]:
-        bot.send_message(message.chat.id, LANG[lang_code]["language"], parse_mode="Markdown", reply_markup=get_language_keyboard())
+        bot.send_message(message.chat.id, t["language"], parse_mode="Markdown", reply_markup=get_language_keyboard(user_id))
     elif text == t["menu_search"]:
         user_states[user_id] = "waiting_for_search_query"
         save_database()
-        bot.send_message(message.chat.id, LANG[lang_code]["search"], parse_mode="Markdown")
+        bot.send_message(message.chat.id, t["search"], parse_mode="Markdown")
     elif text == t["menu_support"]:
-        bot.send_message(message.chat.id, LANG[lang_code]["support"], parse_mode="Markdown")
+        bot.send_message(message.chat.id, t["support"], parse_mode="Markdown")
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
     is_protocol = item_key in product_inventory["Telegram Protocol"]["items"] if "Telegram Protocol" in product_inventory else False
@@ -1016,6 +1032,9 @@ def handle_inline_clicks(call):
         user_deposits[user_id] = []
     save_database()
 
+    lang_code = get_lang(user_id)
+    t = LANG[lang_code]
+
     if call.data == "lang_en":
         user_languages[user_id] = "en"
         save_database()
@@ -1069,7 +1088,7 @@ def handle_inline_clicks(call):
             "👉 @tianpeng7777"
         )
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="back_to_products_menu"))
         try:
             bot.edit_message_text(support_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
         except Exception:
@@ -1100,9 +1119,9 @@ def handle_inline_clicks(call):
         for sub_name, sub_data in sub_items.items():
             stock = len(sub_data.get("accounts", []))
             price = sub_data.get("price", 1.00)
-            markup.add(types.InlineKeyboardButton(f"📂 {sub_name} — Price: ${price:.2f} | Stock: {stock}", callback_data=f"prod_sub_buy_{cat_name}_{sub_name}"))
+            markup.add(types.InlineKeyboardButton(f"📂 {sub_name} — Price: ${price:.2f} | {t['stock']}: {stock}", callback_data=f"prod_sub_buy_{cat_name}_{sub_name}"))
         
-        markup.add(types.InlineKeyboardButton("< Back", callback_data="back_to_products_menu"))
+        markup.add(types.InlineKeyboardButton(t["back"], callback_data="back_to_products_menu"))
         try:
             bot.edit_message_text(f"📁 **Select sub-folder under {cat_name}:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
         except Exception:
@@ -1119,7 +1138,7 @@ def handle_inline_clicks(call):
         try:
             bot.edit_message_text(
                 f"🔢 **Select Quantity for {p_cat} -> {s_item}:**\n\nChoose how many items you want to buy:",
-                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_quantity_keyboard(combined_key)
+                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_quantity_keyboard(combined_key, user_id)
             )
         except Exception:
             pass
@@ -1128,9 +1147,9 @@ def handle_inline_clicks(call):
     elif call.data == "prod_telegram_acc":
         bot.answer_callback_query(call.id, "Telegram Protocol")
         try:
-            bot.edit_message_text("🌍 **Select a country & phone code:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_products_countries_keyboard())
+            bot.edit_message_text(t["select_country"], call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_products_countries_keyboard(user_id))
         except Exception:
-            bot.send_message(call.message.chat.id, "🌍 **Select a country & phone code:**", parse_mode="Markdown", reply_markup=get_products_countries_keyboard())
+            bot.send_message(call.message.chat.id, t["select_country"], parse_mode="Markdown", reply_markup=get_products_countries_keyboard(user_id))
         return
 
     elif call.data.startswith("select_country_"):
@@ -1146,13 +1165,13 @@ def handle_inline_clicks(call):
         markup = types.InlineKeyboardMarkup(row_width=1)
         markup.add(
             types.InlineKeyboardButton("🛒 Select Quantity", callback_data=f"buy_protocol_{country}"),
-            types.InlineKeyboardButton("< Back", callback_data="prod_telegram_acc")
+            types.InlineKeyboardButton(t["back"], callback_data="prod_telegram_acc")
         )
         try:
             bot.edit_message_text(
                 f"🌐 **Country:** {country} ({c_code})\n\n"
                 f"💰 **Price:** `${price:.2f}`\n"
-                f"📦 **Available Stock:** `{stock_count}` items\n\n"
+                f"📦 **Available {t['stock']}:** `{stock_count}` items\n\n"
                 "Click below to proceed to quantity selection:",
                 call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
             )
@@ -1166,7 +1185,7 @@ def handle_inline_clicks(call):
         try:
             bot.edit_message_text(
                 f"🔢 **Select Quantity for Telegram Protocol ({country}):**\n\nChoose how many items you want to buy:",
-                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_quantity_keyboard(country)
+                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_quantity_keyboard(country, user_id)
             )
         except Exception:
             pass
@@ -1185,7 +1204,7 @@ def handle_inline_clicks(call):
                     for sub_name in product_inventory[p_name].get("items", {}).keys():
                         markup.add(types.InlineKeyboardButton(f"📦 {p_name} -> {sub_name}", callback_data=f"select_sub_for_acc_{p_name}___{sub_name}"))
             
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_back"))
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
             bot.answer_callback_query(call.id, "Add Stock Menu")
             try:
                 bot.edit_message_text("Select sub-folder to add stock & price:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1223,7 +1242,7 @@ def handle_inline_clicks(call):
             markup = types.InlineKeyboardMarkup(row_width=1)
             for cat_name in product_inventory.keys():
                 markup.add(types.InlineKeyboardButton(f"📁 📂 [{cat_name}] Manage", callback_data=f"admin_manage_cat_{cat_name}"))
-            markup.add(types.InlineKeyboardButton("< Back to Admin Panel", callback_data="admin_back"))
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
             bot.answer_callback_query(call.id, "Categories Management")
             try:
                 bot.edit_message_text("📁 **Manage Product Categories & Sub-Folders:**\nSelect a category below to manage its sub-folders or edit/delete it:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1258,7 +1277,7 @@ def handle_inline_clicks(call):
                             types.InlineKeyboardButton(f"❌ Delete Sub: {sub_name}", callback_data=f"admin_delete_sub_{cat_name}___{sub_name}")
                         )
             
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_edit_delete_cat_menu"))
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_edit_delete_cat_menu"))
             bot.answer_callback_query(call.id, cat_name)
             try:
                 bot.edit_message_text(f"📁 **Category:** `{cat_name}`\nChoose an action:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1276,7 +1295,7 @@ def handle_inline_clicks(call):
                         types.InlineKeyboardButton(f"✏️ Rename: {c_name}", callback_data=f"admin_rename_country_{c_name}"),
                         types.InlineKeyboardButton(f"❌ Delete: {c_name}", callback_data=f"admin_delete_country_{c_name}")
                     )
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_manage_cat_Telegram Protocol"))
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_manage_cat_Telegram Protocol"))
             bot.answer_callback_query(call.id, "Countries Edit/Delete")
             try:
                 bot.edit_message_text("🌐 **Manage Telegram Protocol Countries:**\nSelect a country to Rename or Delete:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1311,7 +1330,7 @@ def handle_inline_clicks(call):
                         types.InlineKeyboardButton(f"✏️ Rename: {c}", callback_data=f"admin_rename_country_{c}"),
                         types.InlineKeyboardButton(f"❌ Delete: {c}", callback_data=f"admin_delete_country_{c}")
                     )
-                markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_manage_cat_Telegram Protocol"))
+                markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_manage_cat_Telegram Protocol"))
                 try:
                     bot.edit_message_text(f"✅ Country **{country_name}** deleted successfully!\n\n🌐 **Manage Telegram Protocol Countries:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
                 except Exception:
@@ -1364,7 +1383,7 @@ def handle_inline_clicks(call):
                 save_database()
                 bot.answer_callback_query(call.id, f"Deleted {cat_name}")
                 try:
-                    bot.edit_message_text(f"✅ Category **{cat_name}** has been deleted successfully!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                    bot.edit_message_text(f"✅ Category **{cat_name}** has been deleted successfully!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 except Exception:
                     pass
             else:
@@ -1400,7 +1419,7 @@ def handle_inline_clicks(call):
                     save_database()
                     bot.answer_callback_query(call.id, f"Deleted {sub_name}")
                     try:
-                        bot.edit_message_text(f"✅ Sub-folder **{sub_name}** deleted successfully from **{parent_cat}**!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                        bot.edit_message_text(f"✅ Sub-folder **{sub_name}** deleted successfully from **{parent_cat}**!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                     except Exception:
                         pass
                 else:
@@ -1475,9 +1494,9 @@ def handle_inline_clicks(call):
     if call.data == "btn_deposit_open" or call.data == "dep_confirm" or call.data == "▲ Deposit":
         try:
             bot.answer_callback_query(call.id, "Loading...")
-            bot.edit_message_text("Select amount (USDT):", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
+            bot.edit_message_text(t["deposit"], call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
         except Exception:
-            bot.send_message(call.message.chat.id, "Select amount (USDT):", parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
+            bot.send_message(call.message.chat.id, t["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
         return
 
     elif call.data.startswith("amt_"):
@@ -1497,7 +1516,7 @@ def handle_inline_clicks(call):
                     "Please select your preferred payment method:"
                 )
                 bot.answer_callback_query(call.id, f"Selected ${selected_val:.2f}")
-                bot.edit_message_text(payment_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard())
+                bot.edit_message_text(payment_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard(user_id))
             except Exception:
                 pass
         return
@@ -1534,9 +1553,9 @@ def handle_inline_clicks(call):
         )
         bot.answer_callback_query(call.id, "Selected Binance Pay")
         try:
-            bot.edit_message_text(binance_order_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_order_created_keyboard("binance", order_id))
+            bot.edit_message_text(binance_order_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_order_created_keyboard("binance", order_id, user_id))
         except Exception:
-            bot.send_message(call.message.chat.id, binance_order_text, parse_mode="Markdown", reply_markup=get_order_created_keyboard("binance", order_id))
+            bot.send_message(call.message.chat.id, binance_order_text, parse_mode="Markdown", reply_markup=get_order_created_keyboard("binance", order_id, user_id))
         return
 
     elif call.data == "pay_tron_menu":
@@ -1544,7 +1563,7 @@ def handle_inline_clicks(call):
         try:
             bot.edit_message_text(
                 f"💎 **Tron Network** (Min Deposit: $3)\n\nSelected Amount: ${user_amounts.get(user_id, 3.00):.2f}\n\nPlease select token/coin type:",
-                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_tron_subfolders_keyboard()
+                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_tron_subfolders_keyboard(user_id)
             )
         except Exception:
             pass
@@ -1555,7 +1574,7 @@ def handle_inline_clicks(call):
         try:
             bot.edit_message_text(
                 f"🪙 **Bsc Network (BEP20)** (Min Deposit: $3)\n\nSelected Amount: ${user_amounts.get(user_id, 3.00):.2f}\n\nPlease select token/coin type:",
-                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_bsc_subfolders_keyboard()
+                call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_bsc_subfolders_keyboard(user_id)
             )
         except Exception:
             pass
@@ -1624,9 +1643,9 @@ def handle_inline_clicks(call):
         )
         bot.answer_callback_query(call.id, "Order Generated!")
         try:
-            bot.edit_message_text(order_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_order_created_keyboard(net_code, order_id))
+            bot.edit_message_text(order_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_order_created_keyboard(net_code, order_id, user_id))
         except Exception:
-            bot.send_message(call.message.chat.id, order_text, parse_mode="Markdown", reply_markup=get_order_created_keyboard(net_code, order_id))
+            bot.send_message(call.message.chat.id, order_text, parse_mode="Markdown", reply_markup=get_order_created_keyboard(net_code, order_id, user_id))
         return
 
     elif call.data == "hist_purchase":
@@ -1634,7 +1653,7 @@ def handle_inline_clicks(call):
         purchases = user_purchases.get(str(user_id), user_purchases.get(user_id, []))
         hist_text = "📦 **PURCHASE HISTORY**\n──────────────────────\n" + ("\n".join(purchases) if purchases else "No purchases yet.")
         try:
-            bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("< Back", callback_data="back_to_history_menu")))
+            bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
             pass
         return
@@ -1644,16 +1663,16 @@ def handle_inline_clicks(call):
         deposits = user_deposits.get(str(user_id), user_deposits.get(user_id, []))
         dep_text = "💰 **DEPOSIT HISTORY**\n──────────────────────\n" + ("\n".join(deposits) if deposits else "No deposit orders yet.")
         try:
-            bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("< Back", callback_data="back_to_history_menu")))
+            bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
             pass
         return
 
     elif call.data == "back_to_history_menu":
         bot.answer_callback_query(call.id, "History Menu")
-        history_main_text = "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:"
+        history_main_text = t["history"]
         try:
-            bot.edit_message_text(history_main_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_history_menu_keyboard())
+            bot.edit_message_text(history_main_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_history_menu_keyboard(user_id))
         except Exception:
             pass
         return
@@ -1687,7 +1706,7 @@ def handle_inline_clicks(call):
     elif call.data == "back_to_products_menu":
         bot.answer_callback_query(call.id, "Products Menu")
         try:
-            bot.edit_message_text("📁 **Select a product category:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_products_categories_keyboard())
+            bot.edit_message_text(t["products"], call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_products_categories_keyboard(user_id))
         except Exception:
             pass
         return
@@ -1697,7 +1716,7 @@ def handle_inline_clicks(call):
             markup = types.InlineKeyboardMarkup(row_width=1)
             for c in product_inventory["Telegram Protocol"]["items"].keys():
                 markup.add(types.InlineKeyboardButton(f"🗂️ Protocol Country ({c})", callback_data=f"select_zip_country_{c}"))
-            markup.add(types.InlineKeyboardButton("< Back", callback_data="admin_edit_delete_cat_menu"))
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_edit_delete_cat_menu"))
             bot.answer_callback_query(call.id, "ZIP Menu")
             try:
                 bot.edit_message_text("Select country to upload ZIP file stock:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
@@ -1721,7 +1740,7 @@ def handle_inline_clicks(call):
     elif call.data == "admin_back":
         if is_admin(user_id):
             try:
-                bot.edit_message_text("🛠️ **Welcome to Admin Panel**\n\nChoose an option below:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard())
+                bot.edit_message_text("🛠️ **Welcome to Admin Panel**\n\nChoose an option below:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             except Exception:
                 pass
         return
@@ -1736,7 +1755,6 @@ def handle_inline_clicks(call):
             pass
         send_welcome(call.message)
 
-# ── Webhook Handler Server Setup (Render Safe) ──
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))
