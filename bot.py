@@ -11,7 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
-TOKEN = '9046269011:AAEBYEFeyTAL-G7ju6L0OSk-y969HHthDfs'
+TOKEN = '9046269011:AAElNPCY8TXlyVd2h86za54FxJPWDx7iRdA'
 bot = telebot.TeleBot(TOKEN)
 
 ADMIN_IDS = [8516400686]
