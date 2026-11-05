@@ -15,7 +15,7 @@ TOKEN = '9046269011:AAEBYEFeyTAL-G7ju6L0OSk-y969HHthDfs'
 bot = telebot.TeleBot(TOKEN)
 
 # ── একাধিক অ্যাডমিন কনফিগারেশন ──
-ADMIN_IDS = [8516400686]  # নির্দিষ্ট আইডি রিমুভ করা হয়েছে
+ADMIN_IDS = [8516400686]  # নির্দিষ্ট আইডি 
 ADMIN_PASSWORD = "101010"  # এডমিন পাসওয়ার্ড
 
 def is_admin(user_id):
@@ -96,7 +96,6 @@ def save_database(path="/", data=None):
             "all_users": list(all_users),
             "product_inventory": product_inventory
         }
-    # ব্যাকগ্রাউন্ড থ্রেডে ফায়ারবেস আপডেট করার ফলে বট ফ্রিজ বা স্লো হবে না
     threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
 
 # ডাটা ইনিশিয়ালাইজেশন
@@ -113,7 +112,7 @@ all_users = set(int(u) for u in db_data.get("all_users", []))
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
-# ভাষার ডিকশনারি (Texts)
+# ভাষার ডিকশনারি (Texts & Menu Buttons)
 LANG = {
     "en": {
         "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
@@ -126,7 +125,18 @@ LANG = {
         "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 @tianpeng7777",
         "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
         "language": "🌐 **Language Settings / 语言设置**\n\nPlease select your preferred language:",
-        "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:"
+        "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:",
+        # Reply Menu Buttons (English)
+        "menu_dashboard": "📊 Dashboard",
+        "menu_products": "◆ Products",
+        "menu_account": "◆ My Account",
+        "menu_deposit": "▲ Deposit",
+        "menu_refer": "👥 Refer & Earn",
+        "menu_history": "目 History",
+        "menu_support": "Support",
+        "menu_lang": "🌐 Language",
+        "menu_search": "🔍 Search",
+        "menu_admin": "🛠️ Admin Panel"
     },
     "zh": {
         "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
@@ -134,12 +144,23 @@ LANG = {
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
-        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
-        "history": "目 **历史菜单**\n──────────────────────\nPlease select which history you want to view:",
+        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_referrals} 用户\n💡 复制此链接并与您的朋友分享。",
+        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @tianpeng7777",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
-        "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项："
+        "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项：",
+        # Reply Menu Buttons (Chinese)
+        "menu_dashboard": "📊 仪表盘",
+        "menu_products": "◆ 产品中心",
+        "menu_account": "◆ 我的账户",
+        "menu_deposit": "▲ 充值",
+        "menu_refer": "👥 推荐返利",
+        "menu_history": "目 历史记录",
+        "menu_support": "客服支持",
+        "menu_lang": "🌐 语言设置",
+        "menu_search": "🔍 搜索产品",
+        "menu_admin": "🛠️ 管理面板"
     }
 }
 
@@ -151,6 +172,25 @@ def set_bot_commands(bot_instance):
         telebot.types.BotCommand("/start", "Re-start Bot & Open Menu")
     ]
     bot_instance.set_my_commands(commands)
+
+def get_main_menu_keyboard(user_id):
+    lang_code = get_lang(user_id)
+    t = LANG[lang_code]
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton(t["menu_dashboard"]),
+        types.KeyboardButton(t["menu_products"]),
+        types.KeyboardButton(t["menu_account"]),
+        types.KeyboardButton(t["menu_deposit"]),
+        types.KeyboardButton(t["menu_refer"]),
+        types.KeyboardButton(t["menu_history"]),
+        types.KeyboardButton(t["menu_support"]),
+        types.KeyboardButton(t["menu_lang"]),
+        types.KeyboardButton(t["menu_search"])
+    )
+    if is_admin(user_id):
+        markup.add(types.KeyboardButton(t["menu_admin"]))
+    return markup
 
 def get_select_amount_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=3)
@@ -279,23 +319,6 @@ def get_language_keyboard():
         types.InlineKeyboardButton("🇨🇳 China (中文)", callback_data="lang_zh")
     )
     markup.add(types.InlineKeyboardButton("< Main Menu", callback_data="go_main_menu"))
-    return markup
-
-def get_main_menu_keyboard(user_id):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        types.KeyboardButton("📊 Dashboard"),
-        types.KeyboardButton("◆ Products"),
-        types.KeyboardButton("◆ My Account"),
-        types.KeyboardButton("▲ Deposit"),
-        types.KeyboardButton("👥 Refer & Earn"),
-        types.KeyboardButton("目 History"),
-        types.KeyboardButton("Support"),
-        types.KeyboardButton("🌐 Language"),
-        types.KeyboardButton("🔍 Search")
-    )
-    if is_admin(user_id):
-        markup.add(types.KeyboardButton("🛠️ Admin Panel"))
     return markup
 
 def get_admin_panel_keyboard():
@@ -433,7 +456,6 @@ def handle_all_messages(message):
             save_database()
         return
 
-    # কান্ট্রি রিনেম হ্যান্ডলার
     if user_states.get(user_id, "").startswith("waiting_for_rename_country_"):
         if is_admin(user_id):
             old_country = user_states.get(user_id).replace("waiting_for_rename_country_", "")
@@ -700,7 +722,6 @@ def handle_all_messages(message):
             types.InlineKeyboardButton("❌ Reject Deposit", callback_data=f"dep_reject_{user_id}_{current_amount}")
         )
         
-        # সকল অ্যাডমিনকে নোটিফিকেশন পাঠানো
         for adm in ADMIN_IDS:
             try:
                 bot.send_message(adm, admin_alert, parse_mode="Markdown", reply_markup=admin_markup)
@@ -761,12 +782,14 @@ def handle_all_messages(message):
         return
 
     text = message.text if message.text else ""
+    lang_code = get_lang(user_id)
+    t = LANG[lang_code]
 
-    if text in ["◆ Products", "◆ My Account", "▲ Deposit", "👥 Refer & Earn", "目 History", "Support", "🌐 Language", "🔍 Search", "🛠️ Admin Panel", "📊 Dashboard"]:
+    if text in [t["menu_products"], t["menu_account"], t["menu_deposit"], t["menu_refer"], t["menu_history"], t["menu_support"], t["menu_lang"], t["menu_search"], t["menu_admin"], t["menu_dashboard"]]:
         user_states.pop(user_id, None)
         save_database()
 
-    if text == "🛠️ Admin Panel":
+    if text == t["menu_admin"]:
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_admin_password"
             save_database()
@@ -775,7 +798,7 @@ def handle_all_messages(message):
             bot.send_message(message.chat.id, "❌ Access denied.")
         return
 
-    if text == "📊 Dashboard":
+    if text == t["menu_dashboard"]:
         dashboard_text = (
             "📊 **Dashboard & Price List**\n"
             "────────────────────────\n"
@@ -799,43 +822,36 @@ def handle_all_messages(message):
         
         bot.send_message(message.chat.id, dashboard_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
 
-    elif text == "◆ Products":
-        lang_code = get_lang(user_id)
+    elif text == t["menu_products"]:
         bot.send_message(message.chat.id, LANG[lang_code]["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard())
-    elif text == "▲ Deposit":
-        lang_code = get_lang(user_id)
+    elif text == t["menu_deposit"]:
         user_states[user_id] = "waiting_for_deposit"
         save_database()
         bot.send_message(message.chat.id, LANG[lang_code]["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard())
-    elif text == "👥 Refer & Earn":
+    elif text == t["menu_refer"]:
         bot_info = bot.get_me()
         bot_username = bot_info.username
         referral_link = f"https://t.me/{bot_username}?start={user_id}"
         total_referrals = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
-        lang_code = get_lang(user_id)
         referral_text = LANG[lang_code]["refer"].format(referral_link=referral_link, total_refs=total_referrals, total_referrals=total_referrals)
         bot.send_message(message.chat.id, referral_text, parse_mode="Markdown")
-    elif text == "目 History":
-        lang_code = get_lang(user_id)
+    elif text == t["menu_history"]:
         bot.send_message(message.chat.id, LANG[lang_code]["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard())
-    elif text == "◆ My Account":
+    elif text == t["menu_account"]:
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
         total_refs = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
         balance_val = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
         purchased_total = len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))
-        lang_code = get_lang(user_id)
         account_text = LANG[lang_code]["account"].format(user_id=user.id, username=username, balance=balance_val, total_refs=total_refs, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
-    elif text == "🌐 Language":
-        bot.send_message(message.chat.id, LANG[get_lang(user_id)]["language"], parse_mode="Markdown", reply_markup=get_language_keyboard())
-    elif text == "🔍 Search":
-        lang_code = get_lang(user_id)
+    elif text == t["menu_lang"]:
+        bot.send_message(message.chat.id, LANG[lang_code]["language"], parse_mode="Markdown", reply_markup=get_language_keyboard())
+    elif text == t["menu_search"]:
         user_states[user_id] = "waiting_for_search_query"
         save_database()
         bot.send_message(message.chat.id, LANG[lang_code]["search"], parse_mode="Markdown")
-    elif text == "Support":
-        lang_code = get_lang(user_id)
+    elif text == t["menu_support"]:
         bot.send_message(message.chat.id, LANG[lang_code]["support"], parse_mode="Markdown")
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
@@ -1250,7 +1266,6 @@ def handle_inline_clicks(call):
                 pass
         return
 
-    # Telegram Protocol এর কান্ট্রি এডিট/ডিলিট মেনু
     elif call.data == "admin_edit_delete_countries_menu":
         if is_admin(user_id):
             markup = types.InlineKeyboardMarkup(row_width=1)
@@ -1290,7 +1305,6 @@ def handle_inline_clicks(call):
                 save_database()
                 bot.answer_callback_query(call.id, f"Deleted {country_name}")
                 
-                # রিফ্রেশ করে আবার কান্ট্রি লিস্ট দেখানো
                 markup = types.InlineKeyboardMarkup(row_width=1)
                 for c in proto_items.keys():
                     markup.add(
@@ -1752,7 +1766,6 @@ if __name__ == '__main__':
     
     set_bot_commands(bot)
     
-    # অটোমেটিক ওয়েবুক সেটআপ
     RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
     if RENDER_URL:
         bot.remove_webhook()
