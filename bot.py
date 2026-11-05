@@ -335,6 +335,7 @@ def get_admin_panel_keyboard(user_id):
     t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
+        types.InlineKeyboardButton("👥 Users & Balance Management", callback_data="admin_users_list"),
         types.InlineKeyboardButton("📢 Broadcast Message", callback_data="admin_broadcast_start"),
         types.InlineKeyboardButton("➕ Add New Product Category", callback_data="admin_add_category"),
         types.InlineKeyboardButton("📦 Add Stock & Price", callback_data="admin_add_accounts"),
@@ -418,6 +419,37 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, "✅ Password correct!\n\n" + t["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Incorrect password! Access denied.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    if user_states.get(user_id, "").startswith("waiting_for_balance_modify_"):
+        if is_admin(user_id):
+            target_uid = int(user_states.get(user_id).replace("waiting_for_balance_modify_", ""))
+            try:
+                amount_change = float(message.text.strip())
+                if str(target_uid) not in user_balances and target_uid not in user_balances:
+                    user_balances[target_uid] = 0.00
+                
+                current_bal = float(user_balances.get(str(target_uid), user_balances.get(target_uid, 0.00)))
+                new_bal = current_bal + amount_change
+                if new_bal < 0:
+                    new_bal = 0.00
+                
+                user_balances[target_uid] = new_bal
+                user_states.pop(user_id, None)
+                save_database()
+
+                bot.send_message(
+                    message.chat.id, 
+                    f"✅ **Balance Updated Successfully!**\n\n👤 User ID: `{target_uid}`\n💰 Previous: `${current_bal:.2f}`\n💵 New Balance: `${new_bal:.2f}`", 
+                    parse_mode="Markdown", 
+                    reply_markup=get_admin_panel_keyboard(user_id)
+                )
+                try:
+                    bot.send_message(target_uid, f"🔔 Admin has updated your account balance. Current Balance: **${new_bal:.2f}**", parse_mode="Markdown")
+                except Exception:
+                    pass
+            except ValueError:
+                bot.send_message(message.chat.id, "❌ Invalid amount! Please enter a valid number (e.g. `5` or `-2.50`):")
         return
 
     if user_states.get(user_id) == "waiting_for_new_support_username":
@@ -1032,6 +1064,69 @@ def handle_inline_clicks(call):
         except Exception:
             pass
         send_welcome(call.message)
+        return
+
+    if call.data == "admin_users_list":
+        if is_admin(user_id):
+            bot.answer_callback_query(call.id, "Users List")
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            
+            if not all_users:
+                markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
+                bot.edit_message_text("👥 No users found in database yet.", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                return
+
+            for uid in list(all_users):
+                if is_admin(uid):
+                    continue
+                bal = float(user_balances.get(str(uid), user_balances.get(uid, 0.00)))
+                markup.add(types.InlineKeyboardButton(f"👤 ID: {uid} | 💰 ${bal:.2f}", callback_data=f"admin_manage_user_{uid}"))
+            
+            markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
+            try:
+                bot.edit_message_text("👥 **Registered Users List:**\nClick on any user below to manage their balance:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except Exception:
+                pass
+        return
+
+    elif call.data.startswith("admin_manage_user_"):
+        if is_admin(user_id):
+            target_uid = int(call.data.replace("admin_manage_user_", ""))
+            bal = float(user_balances.get(str(target_uid), user_balances.get(target_uid, 0.00)))
+            
+            bot.answer_callback_query(call.id, f"User {target_uid}")
+            markup = types.InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                types.InlineKeyboardButton("➕ Add Balance", callback_data=f"admin_bal_add_{target_uid}"),
+                types.InlineKeyboardButton("➖ Deduct Balance", callback_data=f"admin_bal_sub_{target_uid}"),
+                types.InlineKeyboardButton(t["back"], callback_data="admin_users_list")
+            )
+            try:
+                bot.edit_message_text(
+                    f"👤 **User Management**\n\n🆔 User ID: `{target_uid}`\n💰 Current Balance: `${bal:.2f}`\n\nChoose an option to modify balance:", 
+                    call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
+                )
+            except Exception:
+                pass
+        return
+
+    elif call.data.startswith("admin_bal_add_") or call.data.startswith("admin_bal_sub_"):
+        if is_admin(user_id):
+            is_add = call.data.startswith("admin_bal_add_")
+            target_uid = int(call.data.replace("admin_bal_add_" if is_add else "admin_bal_sub_", ""))
+            
+            user_states[user_id] = f"waiting_for_balance_modify_{target_uid}"
+            save_database()
+            bot.answer_callback_query(call.id, "Enter amount")
+            
+            action_text = "যোগ (Add)" if is_add else "বিয়োগ (Deduct)"
+            try:
+                bot.edit_message_text(
+                    f"💵 **Balance Modification ({action_text})**\n\nTarget User ID: `{target_uid}`\n\nSend the amount you want to {'add' if is_add else 'subtract'} (e.g. `5` or `10.50`):\n*(Note: To deduct, just enter positive number, system will subtract it)*", 
+                    call.message.chat.id, call.message.message_id, parse_mode="Markdown"
+                )
+            except Exception:
+                pass
         return
 
     if call.data.startswith("qty_"):
