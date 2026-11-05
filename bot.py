@@ -38,7 +38,6 @@ DEFAULT_DATABASE = {
     "user_balances": {},
     "user_purchases": {},
     "user_deposits": {},
-    "user_referrals": {},
     "used_txids": [],
     "user_languages": {},
     "all_users": [],
@@ -86,7 +85,6 @@ def save_database(path="/", data=None):
             "user_balances": {str(k): v for k, v in user_balances.items()},
             "user_purchases": {str(k): v for k, v in user_purchases.items()},
             "user_deposits": {str(k): v for k, v in user_deposits.items()},
-            "user_referrals": {str(k): v for k, v in user_referrals.items()},
             "used_txids": list(used_txids),
             "user_languages": {str(k): v for k, v in user_languages.items()},
             "all_users": list(all_users),
@@ -101,7 +99,6 @@ user_states = {int(k): v for k, v in db_data.get("user_states", {}).items()}
 user_balances = {int(k): v for k, v in db_data.get("user_balances", {}).items()}
 user_purchases = {int(k): v for k, v in db_data.get("user_purchases", {}).items()}
 user_deposits = {int(k): v for k, v in db_data.get("user_deposits", {}).items()}
-user_referrals = {int(k): v for k, v in db_data.get("user_referrals", {}).items()}
 used_txids = set(db_data.get("used_txids", []))
 user_languages = {int(k): v for k, v in db_data.get("user_languages", {}).items()}
 all_users = set(int(u) for u in db_data.get("all_users", []))
@@ -114,9 +111,8 @@ LANG = {
         "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
         "dashboard": "📊 **Dashboard & Price List**\n\nHere is the current inventory and price list of all products:",
         "products": "📁 **Select a product category:**",
-        "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nReferrals  ·  {total_refs} users\nPurchased  ·  ${purchased_total}",
+        "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nPurchased  ·  ${purchased_total}",
         "deposit": "Select amount (USDT):",
-        "refer": "👥 **Refer & Earn Program**\n────────────────────────\nRefer our bot to your friends and earn an attractive bonus for each referral!\n\n🔗 **Your Referral Link:**\n`{referral_link}`\n\n📊 **Total Referrals:** {total_referrals} users\n💡 Copy this link and share it with your friends.",
         "history": "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:",
         "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 {support_user}",
         "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
@@ -126,7 +122,6 @@ LANG = {
         "menu_products": "◆ Products",
         "menu_account": "◆ My Account",
         "menu_deposit": "▲ Deposit",
-        "menu_refer": "👥 Refer & Earn",
         "menu_history": "目 History",
         "menu_support": "Support",
         "menu_lang": "🌐 Language",
@@ -144,9 +139,8 @@ LANG = {
         "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
         "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有产品的当前库存和价格表：",
         "products": "📁 **选择产品类别：**",
-        "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
+        "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
-        "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
         "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 {support_user}",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
@@ -156,7 +150,6 @@ LANG = {
         "menu_products": "◆ 产品中心",
         "menu_account": "◆ 我的账户",
         "menu_deposit": "▲ 充值",
-        "menu_refer": "👥 推荐返利",
         "menu_history": "目 历史记录",
         "menu_support": "客服支持",
         "menu_lang": "🌐 语言设置",
@@ -190,7 +183,6 @@ def get_main_menu_keyboard(user_id):
         types.KeyboardButton(t["menu_products"]),
         types.KeyboardButton(t["menu_account"]),
         types.KeyboardButton(t["menu_deposit"]),
-        types.KeyboardButton(t["menu_refer"]),
         types.KeyboardButton(t["menu_history"]),
         types.KeyboardButton(t["menu_support"]),
         types.KeyboardButton(t["menu_lang"]),
@@ -358,25 +350,6 @@ def send_welcome(message):
     user_states.pop(user_id, None)
     all_users.add(user_id)
     save_database()
-    
-    args = message.text.split()
-    if len(args) > 1:
-        try:
-            referrer_id = int(args[1])
-            if referrer_id != user_id and referrer_id not in user_referrals.get(user_id, []):
-                if referrer_id not in user_balances:
-                    user_balances[referrer_id] = 0.00
-                user_balances[referrer_id] += 0.50
-                if referrer_id not in user_referrals:
-                    user_referrals[referrer_id] = []
-                user_referrals[referrer_id].append(user_id)
-                save_database()
-                try:
-                    bot.send_message(referrer_id, "🎉 Congratulations! A new user joined via your referral link and you received a $0.50 bonus!")
-                except Exception:
-                    pass
-        except ValueError:
-            pass
 
     user_name = message.from_user.first_name or "User"
     lang_code = get_lang(user_id)
@@ -817,7 +790,7 @@ def handle_all_messages(message):
 
     text = message.text if message.text else ""
 
-    if text in [t["menu_products"], t["menu_account"], t["menu_deposit"], t["menu_refer"], t["menu_history"], t["menu_support"], t["menu_lang"], t["menu_search"], t["menu_admin"], t["menu_dashboard"]]:
+    if text in [t["menu_products"], t["menu_account"], t["menu_deposit"], t["menu_history"], t["menu_support"], t["menu_lang"], t["menu_search"], t["menu_admin"], t["menu_dashboard"]]:
         user_states.pop(user_id, None)
         save_database()
 
@@ -856,22 +829,14 @@ def handle_all_messages(message):
         user_states[user_id] = "waiting_for_deposit"
         save_database()
         bot.send_message(message.chat.id, t["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
-    elif text == t["menu_refer"]:
-        bot_info = bot.get_me()
-        bot_username = bot_info.username
-        referral_link = f"https://t.me/{bot_username}?start={user_id}"
-        total_referrals = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
-        referral_text = t["refer"].format(referral_link=referral_link, total_refs=total_referrals, total_referrals=total_referrals)
-        bot.send_message(message.chat.id, referral_text, parse_mode="Markdown")
     elif text == t["menu_history"]:
         bot.send_message(message.chat.id, t["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard(user_id))
     elif text == t["menu_account"]:
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
-        total_refs = len(user_referrals.get(str(user_id), user_referrals.get(user_id, [])))
         balance_val = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
         purchased_total = len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))
-        account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, total_refs=total_refs, purchased_total=purchased_total)
+        account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
     elif text == t["menu_lang"]:
         bot.send_message(message.chat.id, t["language"], parse_mode="Markdown", reply_markup=get_language_keyboard(user_id))
