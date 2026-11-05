@@ -11,7 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 
-TOKEN = '9046269011:AAElNPCY8TXlyVd2h86za54FxJPWDx7iRdA'
+TOKEN = '9046269011:AAHDw-S905ibusycppcc222S8WGCRlM9Qak'
 bot = telebot.TeleBot(TOKEN)
 
 ADMIN_IDS = [8516400686]
@@ -447,7 +447,6 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, "❌ Incorrect password! Access denied.", reply_markup=get_main_menu_keyboard(user_id))
         return
 
-    # নতুন সাপোর্ট অ্যাডমিন ইউজারনেম সেভ করার হ্যান্ডলার
     if user_states.get(user_id) == "waiting_for_new_support_username":
         if is_admin(user_id):
             global support_admin_username
@@ -1784,7 +1783,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
             json_string = post_data.decode('utf-8')
             update = telebot.types.Update.de_json(json_string)
             bot.process_new_updates([update])
-        exceptException as e:
+        except Exception as e:
             print(f"Error processing update: {e}")
             
         self.send_response(200)
