@@ -42,6 +42,7 @@ DEFAULT_DATABASE = {
     "used_txids": [],
     "user_languages": {},
     "all_users": [],
+    "support_admin": "@tianpeng7777",
     "product_inventory": {
         "Telegram Protocol": {
             "type": "countries",
@@ -89,6 +90,7 @@ def save_database(path="/", data=None):
             "used_txids": list(used_txids),
             "user_languages": {str(k): v for k, v in user_languages.items()},
             "all_users": list(all_users),
+            "support_admin": support_admin_username,
             "product_inventory": product_inventory
         }
     threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
@@ -103,10 +105,10 @@ user_referrals = {int(k): v for k, v in db_data.get("user_referrals", {}).items(
 used_txids = set(db_data.get("used_txids", []))
 user_languages = {int(k): v for k, v in db_data.get("user_languages", {}).items()}
 all_users = set(int(u) for u in db_data.get("all_users", []))
+support_admin_username = db_data.get("support_admin", "@tianpeng7777")
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
-# ভাষার ডিকশনারি (English & Chinese Translations)
 LANG = {
     "en": {
         "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
@@ -116,11 +118,10 @@ LANG = {
         "deposit": "Select amount (USDT):",
         "refer": "👥 **Refer & Earn Program**\n────────────────────────\nRefer our bot to your friends and earn an attractive bonus for each referral!\n\n🔗 **Your Referral Link:**\n`{referral_link}`\n\n📊 **Total Referrals:** {total_referrals} users\n💡 Copy this link and share it with your friends.",
         "history": "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:",
-        "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 @tianpeng7777",
+        "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 {support_user}",
         "search": "🔍 **Search Products**\n\nEnter product name, country, or phone code (e.g., USA, Bangladesh, +880):",
         "language": "🌐 **Language Settings / 语言设置**\n\nPlease select your preferred language:",
         "admin": "🛠️ **Welcome to Admin Panel**\n\nChoose an option below:",
-        # Menu Buttons
         "menu_dashboard": "📊 Dashboard",
         "menu_products": "◆ Products",
         "menu_account": "◆ My Account",
@@ -131,7 +132,6 @@ LANG = {
         "menu_lang": "🌐 Language",
         "menu_search": "🔍 Search",
         "menu_admin": "🛠️ Admin Panel",
-        # UI Labels
         "select_qty": "🔢 **Select Quantity:**\n\nChoose how many items you want to buy:",
         "select_country": "🌍 **Select a country & phone code:**",
         "back": "< Back",
@@ -142,17 +142,16 @@ LANG = {
     },
     "zh": {
         "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
-        "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有可用产品的当前库存和价格表：",
+        "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有产品的当前库存和价格表：",
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n推荐人数  ·  {total_refs} 用户\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
         "refer": "👥 **推荐返利计划**\n────────────────────────\n推荐我们的机器人给您的朋友，每个推荐都可以获得诱人的奖金！\n\n🔗 **您的推荐链接：**\n`{referral_link}`\n\n📊 **总推荐人数：** {total_refs} 用户\n💡 复制此链接并与您的朋友分享。",
         "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
-        "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 @tianpeng7777",
+        "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 {support_user}",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
-        "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
+        "language": "🌐 **语言设置 / Language Settings**\n\nPlease select your preferred language:",
         "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项：",
-        # Menu Buttons
         "menu_dashboard": "📊 仪表盘",
         "menu_products": "◆ 产品中心",
         "menu_account": "◆ 我的账户",
@@ -163,7 +162,6 @@ LANG = {
         "menu_lang": "🌐 语言设置",
         "menu_search": "🔍 搜索产品",
         "menu_admin": "🛠️ 管理面板",
-        # UI Labels
         "select_qty": "🔢 **选择数量：**\n\n请选择您要购买的数量：",
         "select_country": "🌍 **选择国家及电话区号：**",
         "back": "< 返回",
@@ -349,6 +347,7 @@ def get_admin_panel_keyboard(user_id):
         types.InlineKeyboardButton("➕ Add New Product Category", callback_data="admin_add_category"),
         types.InlineKeyboardButton("📦 Add Stock & Price", callback_data="admin_add_accounts"),
         types.InlineKeyboardButton("✏️ Edit / Delete Categories", callback_data="admin_edit_delete_cat_menu"),
+        types.InlineKeyboardButton("📞 Change Support Username", callback_data="admin_change_support"),
         types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu")
     )
     return markup
@@ -446,6 +445,20 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, "✅ Password correct!\n\n" + t["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Incorrect password! Access denied.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    # নতুন সাপোর্ট অ্যাডমিন ইউজারনেম সেভ করার হ্যান্ডলার
+    if user_states.get(user_id) == "waiting_for_new_support_username":
+        if is_admin(user_id):
+            global support_admin_username
+            new_support = message.text.strip()
+            if not new_support.startswith("@"):
+                new_support = "@" + new_support
+            
+            support_admin_username = new_support
+            user_states.pop(user_id, None)
+            save_database()
+            bot.send_message(message.chat.id, f"✅ Support admin username successfully updated to: **{support_admin_username}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
         return
 
     if user_states.get(user_id) == "waiting_for_new_category_name":
@@ -868,7 +881,8 @@ def handle_all_messages(message):
         save_database()
         bot.send_message(message.chat.id, t["search"], parse_mode="Markdown")
     elif text == t["menu_support"]:
-        bot.send_message(message.chat.id, t["support"], parse_mode="Markdown")
+        support_msg = t["support"].format(support_user=support_admin_username)
+        bot.send_message(message.chat.id, support_msg, parse_mode="Markdown")
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
     is_protocol = item_key in product_inventory["Telegram Protocol"]["items"] if "Telegram Protocol" in product_inventory else False
@@ -1082,17 +1096,24 @@ def handle_inline_clicks(call):
 
     if call.data == "prod_telegram_prem_support":
         bot.answer_callback_query(call.id, "Redirecting to Support...")
-        support_text = (
-            "⭐ **Telegram Premium Support**\n\n"
-            "To purchase or get Telegram Premium, please contact our support admin directly:\n"
-            "👉 @tianpeng7777"
-        )
+        support_text = t["support"].format(support_user=support_admin_username)
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(t["back"], callback_data="back_to_products_menu"))
         try:
             bot.edit_message_text(support_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
         except Exception:
             bot.send_message(call.message.chat.id, support_text, parse_mode="Markdown", reply_markup=markup)
+        return
+
+    if call.data == "admin_change_support":
+        if is_admin(user_id):
+            user_states[user_id] = "waiting_for_new_support_username"
+            save_database()
+            bot.answer_callback_query(call.id, "Change Support Username")
+            try:
+                bot.edit_message_text(f"📞 Current support username is: **{support_admin_username}**\n\nPlease send the new support username (e.g., `@newsupport`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
         return
 
     if call.data == "admin_add_category":
@@ -1763,7 +1784,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
             json_string = post_data.decode('utf-8')
             update = telebot.types.Update.de_json(json_string)
             bot.process_new_updates([update])
-        except Exception as e:
+        exceptException as e:
             print(f"Error processing update: {e}")
             
         self.send_response(200)
