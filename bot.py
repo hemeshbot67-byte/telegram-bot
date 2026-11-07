@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 import pyzipper
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import random
 import os
 import io
@@ -10,6 +10,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
+import time
 
 TOKEN = '9046269011:AAGKD0jYHyf79UVozWtTUo1j6rVM5QuDeNE'
 bot = telebot.TeleBot(TOKEN)
@@ -97,8 +98,31 @@ db_data = load_database()
 user_amounts = {int(k): v for k, v in db_data.get("user_amounts", {}).items()}
 user_states = {int(k): v for k, v in db_data.get("user_states", {}).items()}
 user_balances = {int(k): v for k, v in db_data.get("user_balances", {}).items()}
-user_purchases = {int(k): v for k, v in db_data.get("user_purchases", {}).items()}
-user_deposits = {int(k): v for k, v in db_data.get("user_deposits", {}).items()}
+
+# হিস্ট্রিগুলো এখন ডিকশনারি বা অবজেক্ট ফরম্যাটে সেভ হবে যাতে টাইমস্ট্যাম্প ট্র্যাক করা যায়
+# ফরম্যাট: {"history_text": "...", "timestamp": 1234567890}
+raw_purchases = db_data.get("user_purchases", {})
+user_purchases = {}
+for k, v in raw_purchases.items():
+    uid = int(k)
+    user_purchases[uid] = []
+    for item in v:
+        if isinstance(item, dict):
+            user_purchases[uid].append(item)
+        else:
+            user_purchases[uid].append({"text": str(item), "timestamp": time.time()})
+
+raw_deposits = db_data.get("user_deposits", {})
+user_deposits = {}
+for k, v in raw_deposits.items():
+    uid = int(k)
+    user_deposits[uid] = []
+    for item in v:
+        if isinstance(item, dict):
+            user_deposits[uid].append(item)
+        else:
+            user_deposits[uid].append({"text": str(item), "timestamp": time.time()})
+
 used_txids = set(db_data.get("used_txids", []))
 user_languages = {int(k): v for k, v in db_data.get("user_languages", {}).items()}
 all_users = set(int(u) for u in db_data.get("all_users", []))
@@ -106,12 +130,41 @@ support_admin_username = db_data.get("support_admin", "@tianpeng7777")
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
+# ৩ দিনের পুরনো হিস্ট্রি অটো রিমুভ করার ব্যাকগ্রাউন্ড ফাংশন
+def background_cleanup_job():
+    while True:
+        try:
+            now = time.time()
+            three_days_seconds = 3 * 24 * 60 * 60
+            updated = False
+
+            for uid in list(user_purchases.keys()):
+                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < three_days_seconds]
+                if len(filtered_purchases) != len(user_purchases[uid]):
+                    user_purchases[uid] = filtered_purchases
+                    updated = True
+
+            for uid in list(user_deposits.keys()):
+                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < three_days_seconds]
+                if len(filtered_deposits) != len(user_deposits[uid]):
+                    user_deposits[uid] = filtered_deposits
+                    updated = True
+
+            if updated:
+                save_database()
+                print("Old history older than 3 days successfully cleaned up.")
+        except Exception as e:
+            print(f"Error in background cleanup job: {e}")
+        
+        # প্রতি ১ ঘণ্টা পর পর চেক করবে
+        time.sleep(3600)
+
 LANG = {
     "en": {
         "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
         "dashboard": "📊 **Dashboard & Price List**\n\nHere is the current inventory and price list of all products:",
         "products": "📁 **Select a product category:**",
-        "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nPurchased  ·  ${purchased_total}",
+        "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nPurchased  ·  {purchased_total}",
         "deposit": "Select amount (USDT):",
         "history": "目 **HISTORY MENU**\n──────────────────────\nPlease select which history you want to view:",
         "support": "📞 **Support Center**\n\nFor any help, issues or assistance, please contact our support admin:\n👉 {support_user}",
@@ -948,10 +1001,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 if len(files_in_zip) == 0:
                     zip_list.pop(0)
                 
-                purchase_record = f"Bought {item_key} Protocol (ZIP file) for ${price_per_unit:.2f}"
+                purchase_text = f"Bought {item_key} Protocol (ZIP file) for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
-                user_purchases[user_id].append(purchase_record)
+                user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
                 save_database()
                 
                 file_short_name = os.path.basename(target_file_name)
@@ -968,10 +1021,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 acc_num = purchased_item.get("number", "N/A")
                 acc_2fa = purchased_item.get("2fa", "N/A")
                 
-                purchase_record = f"Bought {item_key}: `{acc_num}` for ${price_per_unit:.2f}"
+                purchase_text = f"Bought {item_key}: `{acc_num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
-                user_purchases[user_id].append(purchase_record)
+                user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
                 save_database()
                 
                 success_text = (
@@ -992,10 +1045,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 item = sub_dict["accounts"].pop(0)
                 num = item.get("number", "N/A")
                 
-                purchase_record = f"Bought {p_cat} -> {s_item}: `{num}` for ${price_per_unit:.2f}"
+                purchase_text = f"Bought {p_cat} -> {s_item}: `{num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
-                user_purchases[user_id].append(purchase_record)
+                user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
                 save_database()
                 
                 success_text = (
@@ -1013,10 +1066,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 item = accounts_list.pop(0)
                 num = item.get("number", "N/A")
                 
-                purchase_record = f"Bought {item_key}: `{num}` for ${price_per_unit:.2f}"
+                purchase_text = f"Bought {item_key}: `{num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
-                user_purchases[user_id].append(purchase_record)
+                user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
                 save_database()
                 
                 success_text = (
@@ -1613,8 +1666,11 @@ def handle_inline_clicks(call):
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         
         temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": "Binance Pay · USDT"}
-        deposit_record = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` (Binance Pay) | Time: {current_time}"
-        user_deposits[user_id].append(deposit_record)
+        deposit_text = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` (Binance Pay) | Time: {current_time}"
+        
+        if user_id not in user_deposits:
+            user_deposits[user_id] = []
+        user_deposits[user_id].append({"text": deposit_text, "timestamp": time.time()})
         save_database()
 
         binance_order_text = (
@@ -1703,8 +1759,11 @@ def handle_inline_clicks(call):
             net_code = "bsc"
 
         temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": currency_type}
-        deposit_record = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` ({currency_type}) | Time: {current_time}"
-        user_deposits[user_id].append(deposit_record)
+        deposit_text = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` ({currency_type}) | Time: {current_time}"
+        
+        if user_id not in user_deposits:
+            user_deposits[user_id] = []
+        user_deposits[user_id].append({"text": deposit_text, "timestamp": time.time()})
         save_database()
 
         order_text = (
@@ -1731,7 +1790,14 @@ def handle_inline_clicks(call):
     elif call.data == "hist_purchase":
         bot.answer_callback_query(call.id, "Purchase History")
         purchases = user_purchases.get(str(user_id), user_purchases.get(user_id, []))
-        hist_text = "📦 **PURCHASE HISTORY**\n──────────────────────\n" + ("\n".join(purchases) if purchases else "No purchases yet.")
+        formatted_purchases = []
+        for p in purchases:
+            if isinstance(p, dict):
+                formatted_purchases.append(p.get("text", ""))
+            else:
+                formatted_purchases.append(str(p))
+
+        hist_text = "📦 **PURCHASE HISTORY (Last 3 Days)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 3 days cleared.")
         try:
             bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -1741,7 +1807,14 @@ def handle_inline_clicks(call):
     elif call.data == "hist_deposit":
         bot.answer_callback_query(call.id, "Deposit History")
         deposits = user_deposits.get(str(user_id), user_deposits.get(user_id, []))
-        dep_text = "💰 **DEPOSIT HISTORY**\n──────────────────────\n" + ("\n".join(deposits) if deposits else "No deposit orders yet.")
+        formatted_deposits = []
+        for d in deposits:
+            if isinstance(d, dict):
+                formatted_deposits.append(d.get("text", ""))
+            else:
+                formatted_deposits.append(str(d))
+
+        dep_text = "💰 **DEPOSIT HISTORY (Last 3 Days)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 3 days cleared.")
         try:
             bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -1860,6 +1933,9 @@ def run_web_server():
     server.serve_forever()
 
 if __name__ == '__main__':
+    # ব্যাকগ্রাউন্ডে ৩ দিনের পুরনো ডাটা ক্লিয়ার করার থ্রেড চালু করা হলো
+    threading.Thread(target=background_cleanup_job, daemon=True).start()
+    
     threading.Thread(target=run_web_server, daemon=True).start()
     
     set_bot_commands(bot)
@@ -1874,6 +1950,5 @@ if __name__ == '__main__':
         
     print("Bot is running with Webhook and Firebase Realtime Database...")
     
-    import time
     while True:
         time.sleep(10)
