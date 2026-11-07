@@ -99,8 +99,6 @@ user_amounts = {int(k): v for k, v in db_data.get("user_amounts", {}).items()}
 user_states = {int(k): v for k, v in db_data.get("user_states", {}).items()}
 user_balances = {int(k): v for k, v in db_data.get("user_balances", {}).items()}
 
-# হিস্ট্রিগুলো এখন ডিকশনারি বা অবজেক্ট ফরম্যাটে সেভ হবে যাতে টাইমস্ট্যাম্প ট্র্যাক করা যায়
-# ফরম্যাট: {"history_text": "...", "timestamp": 1234567890}
 raw_purchases = db_data.get("user_purchases", {})
 user_purchases = {}
 for k, v in raw_purchases.items():
@@ -130,7 +128,6 @@ support_admin_username = db_data.get("support_admin", "@tianpeng7777")
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
-# ৩ দিনের পুরনো হিস্ট্রি অটো রিমুভ করার ব্যাকগ্রাউন্ড ফাংশন
 def background_cleanup_job():
     while True:
         try:
@@ -156,7 +153,6 @@ def background_cleanup_job():
         except Exception as e:
             print(f"Error in background cleanup job: {e}")
         
-        # প্রতি ১ ঘণ্টা পর পর চেক করবে
         time.sleep(3600)
 
 LANG = {
@@ -194,7 +190,7 @@ LANG = {
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
-        "history": "目 **历史菜单**\n──────────────────────\n请选择您要查看的历史记录：",
+        "history": "目 **历史菜单**\n──────────────────────\nPlease select which history you want to view:",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 {support_user}",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
         "language": "🌐 **语言设置 / Language Settings**\n\nPlease select your preferred language:",
@@ -1927,15 +1923,17 @@ class SimpleHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot is alive via Webhook!")
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
 if __name__ == '__main__':
-    # ব্যাকগ্রাউন্ডে ৩ দিনের পুরনো ডাটা ক্লিয়ার করার থ্রেড চালু করা হলো
     threading.Thread(target=background_cleanup_job, daemon=True).start()
-    
     threading.Thread(target=run_web_server, daemon=True).start()
     
     set_bot_commands(bot)
