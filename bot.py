@@ -1674,7 +1674,7 @@ def handle_inline_clicks(call):
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "USDT · TRC20"
-            wallet_address = "93NV9zM5sAS9mXc5FWmRC5qLbwM4EV"
+            wallet_address = "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV"
             network_name = "Tron(Trc20)"
             net_code = "tron"
         elif call.data == "order_trx":
