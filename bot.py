@@ -153,7 +153,8 @@ def background_cleanup_job():
         except Exception as e:
             print(f"Error in background cleanup job: {e}")
         
-        time.sleep(3600)
+        # সারা দিনে মাত্র ১ বার (২৪ ঘণ্টা পর পর) ক্লিনআপ রান হবে
+        time.sleep(86400)
 
 LANG = {
     "en": {
