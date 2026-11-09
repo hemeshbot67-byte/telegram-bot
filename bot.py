@@ -132,28 +132,28 @@ def background_cleanup_job():
     while True:
         try:
             now = time.time()
-            three_days_seconds = 3 * 24 * 60 * 60
+            thirty_hours_seconds = 30 * 60 * 60  # ৩০ ঘণ্টা (সেকেন্ডে রূপান্তরিত)
             updated = False
 
             for uid in list(user_purchases.keys()):
-                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < three_days_seconds]
+                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < thirty_hours_seconds]
                 if len(filtered_purchases) != len(user_purchases[uid]):
                     user_purchases[uid] = filtered_purchases
                     updated = True
 
             for uid in list(user_deposits.keys()):
-                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < three_days_seconds]
+                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < thirty_hours_seconds]
                 if len(filtered_deposits) != len(user_deposits[uid]):
                     user_deposits[uid] = filtered_deposits
                     updated = True
 
             if updated:
                 save_database()
-                print("Old history older than 3 days successfully cleaned up.")
+                print("Old history older than 30 hours successfully cleaned up.")
         except Exception as e:
             print(f"Error in background cleanup job: {e}")
         
-        # সারা দিনে মাত্র ১ বার (২৪ ঘণ্টা পর পর) ক্লিনআপ রান হবে
+        # সারা দিনে ১ বার (২৪ ঘণ্টা পর পর) ক্লিনআপ রান হবে
         time.sleep(86400)
 
 LANG = {
@@ -1794,7 +1794,7 @@ def handle_inline_clicks(call):
             else:
                 formatted_purchases.append(str(p))
 
-        hist_text = "📦 **PURCHASE HISTORY (Last 3 Days)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 3 days cleared.")
+        hist_text = "📦 **PURCHASE HISTORY (Last 30 Hours)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 30 hours cleared.")
         try:
             bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -1811,7 +1811,7 @@ def handle_inline_clicks(call):
             else:
                 formatted_deposits.append(str(d))
 
-        dep_text = "💰 **DEPOSIT HISTORY (Last 3 Days)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 3 days cleared.")
+        dep_text = "💰 **DEPOSIT HISTORY (Last 30 Hours)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 30 hours cleared.")
         try:
             bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
