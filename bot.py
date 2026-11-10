@@ -15,7 +15,8 @@ import time
 TOKEN = '9046269011:AAGKD0jYHyf79UVozWtTUo1j6rVM5QuDeNE'
 bot = telebot.TeleBot(TOKEN)
 
-ADMIN_IDS = [8516400686]
+# আপডেটকৃত অ্যাডমিন আইডি লিস্ট
+ADMIN_IDS = [8516400686, 6911427937]
 ADMIN_PASSWORD = "101010"
 
 def is_admin(user_id):
@@ -132,7 +133,7 @@ def background_cleanup_job():
     while True:
         try:
             now = time.time()
-            thirty_hours_seconds = 30 * 60 * 60  # ৩০ ঘণ্টা (সেকেন্ডে রূপান্তরিত)
+            thirty_hours_seconds = 30 * 60 * 60  # ৩০ ঘণ্টা
             updated = False
 
             for uid in list(user_purchases.keys()):
@@ -153,7 +154,6 @@ def background_cleanup_job():
         except Exception as e:
             print(f"Error in background cleanup job: {e}")
         
-        # সারা দিনে ১ বার (২৪ ঘণ্টা পর পর) ক্লিনআপ রান হবে
         time.sleep(86400)
 
 LANG = {
