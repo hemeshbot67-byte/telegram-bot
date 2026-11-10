@@ -256,7 +256,7 @@ def get_payment_methods_keyboard(user_id):
     t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton("💛 【entity-Binance¦canonical_name=Binance】 Pay (Min $2)", callback_data="pay_binance"),
+        types.InlineKeyboardButton("💛 【entity-Binance Pay¦canonical_name=Binance】 (Min $2)", callback_data="pay_binance"),
         types.InlineKeyboardButton("💎 Tron Network (Min $3)", callback_data="pay_tron_menu"),
         types.InlineKeyboardButton("🪙 Bsc Network (BEP20) (Min $3)", callback_data="pay_bsc_menu"),
         types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
@@ -377,7 +377,6 @@ def get_admin_panel_keyboard(user_id):
     )
     return markup
 
-# ============ NEW: MANAGEMENT KEYBOARDS ============
 def get_management_keyboard(user_id):
     markup = types.InlineKeyboardMarkup(row_width=1)
     total_users = len(all_users)
@@ -390,7 +389,7 @@ def get_management_keyboard(user_id):
 
 def get_users_list_keyboard(page=0, per_page=10):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    users_sorted = sorted(list(all_users), reverse=True)  # নতুন ইউজার আগে
+    users_sorted = sorted(list(all_users), reverse=True)
     total = len(users_sorted)
     total_pages = (total + per_page - 1) // per_page if total > 0 else 1
     page = max(0, min(page, total_pages - 1))
@@ -398,10 +397,8 @@ def get_users_list_keyboard(page=0, per_page=10):
     end = start + per_page
     for uid in users_sorted[start:end]:
         bal = user_balances.get(int(uid), 0.0)
-        # এডমিন হলে 👑 দেখাবে
         crown = " 👑" if is_admin(uid) else ""
         markup.add(types.InlineKeyboardButton(f"👤 {uid}{crown} | 💰 ${bal:.2f}", callback_data=f"mgmt_user_{uid}"))
-    # Pagination
     nav = []
     if page > 0:
         nav.append(types.InlineKeyboardButton("⬅️ Prev", callback_data=f"mgmt_users_{page-1}"))
@@ -448,7 +445,6 @@ def get_user_detail_text(target_uid):
         f"নিচ থেকে Balance Edit করুন:"
     )
     return text
-# ============ END MANAGEMENT KEYBOARDS ============
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -510,8 +506,6 @@ def handle_all_messages(message):
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
 
-    # ===== NEW: MANAGEMENT STATES =====
-    # Search user by ID
     if user_states.get(user_id) == "waiting_for_mgmt_search":
         if is_admin(user_id):
             user_states.pop(user_id, None)
@@ -522,7 +516,6 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, "❌ Invalid User ID! শুধু সংখ্যা দিন, যেমন: `123456789`", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 return
             if target not in all_users:
-                # তবুও দেখাও, যদি ব্যালেন্স থাকে
                 all_users.add(target)
                 if target not in user_balances:
                     user_balances[target] = 0.0
@@ -530,12 +523,11 @@ def handle_all_messages(message):
             bot.send_message(message.chat.id, get_user_detail_text(target), parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target))
         return
 
-    # Balance Add / Sub / Set
     if user_states.get(user_id, "").startswith("waiting_for_mgmt_bal_"):
         if is_admin(user_id):
-            state = user_states.get(user_id)  # waiting_for_mgmt_bal_add_12345
+            state = user_states.get(user_id)
             parts = state.replace("waiting_for_mgmt_bal_", "").split("_")
-            action = parts[0]  # add / sub / set
+            action = parts[0]
             target_uid = int(parts[1])
             try:
                 amount = float(message.text.strip())
@@ -565,13 +557,11 @@ def handle_all_messages(message):
                 f"✅ **Balance Updated!**\n\n👤 User ID: `{target_uid}`\n{msg_action}\n💰 Old Balance: `${old_bal:.2f}`\n💰 New Balance: **${new_bal:.2f}**",
                 parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target_uid)
             )
-            # ইউজারকে নোটিফাই করো
             try:
                 bot.send_message(target_uid, f"💰 **Your balance has been updated by Admin!**\n\nNew Balance: **${new_bal:.2f}**", parse_mode="Markdown")
             except:
                 pass
         return
-    # ===== END MANAGEMENT STATES =====
 
     if user_states.get(user_id) == "waiting_for_admin_password":
         if is_admin(user_id):
@@ -1074,7 +1064,6 @@ def handle_inline_clicks(call):
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
 
-    # ===== NEW: MANAGEMENT CALLBACKS - সবার আগে রাখতে হবে =====
     if call.data == "admin_management":
         if is_admin(user_id):
             bot.answer_callback_query(call.id, "Management")
@@ -1147,8 +1136,7 @@ def handle_inline_clicks(call):
 
     if call.data.startswith("mgmt_bal_add_") or call.data.startswith("mgmt_bal_sub_") or call.data.startswith("mgmt_bal_set_"):
         if is_admin(user_id):
-            # mgmt_bal_add_12345
-            rest = call.data.replace("mgmt_bal_", "")  # add_12345
+            rest = call.data.replace("mgmt_bal_", "")
             action, target_uid = rest.split("_")
             user_states[user_id] = f"waiting_for_mgmt_bal_{action}_{target_uid}"
             save_database()
@@ -1211,7 +1199,6 @@ def handle_inline_clicks(call):
             except:
                 pass
         return
-    # ===== END MANAGEMENT CALLBACKS =====
 
     if call.data == "lang_en":
         user_languages[user_id] = "en"
