@@ -15,7 +15,7 @@ import time
 TOKEN = '9046269011:AAGKD0jYHyf79UVozWtTUo1j6rVM5QuDeNE'
 bot = telebot.TeleBot(TOKEN)
 
-# আপডেটকৃত অ্যাডমিন আইডি লিস্ট
+# অ্যাডমিন আইডি লিস্ট
 ADMIN_IDS = [8516400686, 6911427937]
 ADMIN_PASSWORD = "101010"
 
@@ -133,7 +133,7 @@ def background_cleanup_job():
     while True:
         try:
             now = time.time()
-            thirty_hours_seconds = 30 * 60 * 60  # ৩০ ঘণ্টা
+            thirty_hours_seconds = 30 * 60 * 60
             updated = False
 
             for uid in list(user_purchases.keys()):
@@ -1127,9 +1127,9 @@ def handle_inline_clicks(call):
                 return
 
             for uid in list(all_users):
-                if is_admin(uid):
+                if is_admin(int(uid)):
                     continue
-                bal = float(user_balances.get(uid, 0.00))
+                bal = float(user_balances.get(int(uid), user_balances.get(str(uid), 0.00)))
                 markup.add(types.InlineKeyboardButton(f"👤 ID: {uid} | 💰 ${bal:.2f}", callback_data=f"admin_manage_user_{uid}"))
             
             markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
@@ -1930,6 +1930,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
+    # রেন্ডার ও ক্লাউডের জন্য সঠিকভাবে 0.0.0.0 এ বাইন্ড করা হয়েছে
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
