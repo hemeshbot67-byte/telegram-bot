@@ -20,7 +20,7 @@ ADMIN_IDS = [8516400686, 6911427937]
 ADMIN_PASSWORD = "101010"
 
 def is_admin(user_id):
-    return user_id in ADMIN_IDS
+    return int(user_id) in [int(admin_id) for admin_id in ADMIN_IDS]
 
 firebase_config_json = os.environ.get("FIREBASE_CONFIG_JSON")
 
@@ -89,7 +89,7 @@ def save_database(path="/", data=None):
             "user_deposits": {str(k): v for k, v in user_deposits.items()},
             "used_txids": list(used_txids),
             "user_languages": {str(k): v for k, v in user_languages.items()},
-            "all_users": list(all_users),
+            "all_users": [str(u) for u in all_users],
             "support_admin": support_admin_username,
             "product_inventory": product_inventory
         }
@@ -476,10 +476,10 @@ def handle_all_messages(message):
             target_uid = int(user_states.get(user_id).replace("waiting_for_balance_modify_", ""))
             try:
                 amount_change = float(message.text.strip())
-                if str(target_uid) not in user_balances and target_uid not in user_balances:
+                if target_uid not in user_balances:
                     user_balances[target_uid] = 0.00
                 
-                current_bal = float(user_balances.get(str(target_uid), user_balances.get(target_uid, 0.00)))
+                current_bal = float(user_balances.get(target_uid, 0.00))
                 new_bal = current_bal + amount_change
                 if new_bal < 0:
                     new_bal = 0.00
@@ -916,8 +916,8 @@ def handle_all_messages(message):
     elif text == t["menu_account"]:
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
-        balance_val = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
-        purchased_total = len(user_purchases.get(str(user_id), user_purchases.get(user_id, [])))
+        balance_val = user_balances.get(user_id, 0.00)
+        purchased_total = len(user_purchases.get(user_id, []))
         account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
     elif text == t["menu_lang"]:
@@ -964,7 +964,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
         return
 
     total_price = price_per_unit * qty
-    user_balance = user_balances.get(str(user_id), user_balances.get(user_id, 0.00))
+    user_balance = user_balances.get(user_id, 0.00)
 
     if user_balance < total_price:
         bot.send_message(chat_id, f"❌ Insufficient balance!\nRequired: ${total_price:.2f}\nYour Balance: ${user_balance:.2f}\nPlease deposit first.", reply_markup=get_main_menu_keyboard(user_id))
@@ -1129,7 +1129,7 @@ def handle_inline_clicks(call):
             for uid in list(all_users):
                 if is_admin(uid):
                     continue
-                bal = float(user_balances.get(str(uid), user_balances.get(uid, 0.00)))
+                bal = float(user_balances.get(uid, 0.00))
                 markup.add(types.InlineKeyboardButton(f"👤 ID: {uid} | 💰 ${bal:.2f}", callback_data=f"admin_manage_user_{uid}"))
             
             markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
@@ -1142,7 +1142,7 @@ def handle_inline_clicks(call):
     elif call.data.startswith("admin_manage_user_"):
         if is_admin(user_id):
             target_uid = int(call.data.replace("admin_manage_user_", ""))
-            bal = float(user_balances.get(str(target_uid), user_balances.get(target_uid, 0.00)))
+            bal = float(user_balances.get(target_uid, 0.00))
             
             bot.answer_callback_query(call.id, f"User {target_uid}")
             markup = types.InlineKeyboardMarkup(row_width=2)
@@ -1786,7 +1786,7 @@ def handle_inline_clicks(call):
 
     elif call.data == "hist_purchase":
         bot.answer_callback_query(call.id, "Purchase History")
-        purchases = user_purchases.get(str(user_id), user_purchases.get(user_id, []))
+        purchases = user_purchases.get(user_id, [])
         formatted_purchases = []
         for p in purchases:
             if isinstance(p, dict):
@@ -1803,7 +1803,7 @@ def handle_inline_clicks(call):
 
     elif call.data == "hist_deposit":
         bot.answer_callback_query(call.id, "Deposit History")
-        deposits = user_deposits.get(str(user_id), user_deposits.get(user_id, []))
+        deposits = user_deposits.get(user_id, [])
         formatted_deposits = []
         for d in deposits:
             if isinstance(d, dict):
