@@ -1134,7 +1134,7 @@ def handle_inline_clicks(call):
             
             markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
             try:
-                bot.edit_message_text("👥 **Registered Users List:**\nClick on any user below to manage their balance:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                bot.edit_message_text("👥 **Registered Users List:**\nClick on any user below to edit their balance:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
             except Exception:
                 pass
         return
@@ -1142,7 +1142,7 @@ def handle_inline_clicks(call):
     elif call.data.startswith("admin_manage_user_"):
         if is_admin(user_id):
             target_uid = int(call.data.replace("admin_manage_user_", ""))
-            bal = float(user_balances.get(target_uid, 0.00))
+            bal = float(user_balances.get(target_uid, user_balances.get(str(target_uid), 0.00)))
             
             bot.answer_callback_query(call.id, f"User {target_uid}")
             markup = types.InlineKeyboardMarkup(row_width=2)
@@ -1153,7 +1153,7 @@ def handle_inline_clicks(call):
             )
             try:
                 bot.edit_message_text(
-                    f"👤 **User Management**\n\n🆔 User ID: `{target_uid}`\n💰 Current Balance: `${bal:.2f}`\n\nChoose an option to modify balance:", 
+                    f"👤 **User Balance Management**\n\n🆔 User ID: `{target_uid}`\n💰 Current Balance: `${bal:.2f}`\n\nChoose an action to modify this user's balance:", 
                     call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
                 )
             except Exception:
@@ -1930,7 +1930,6 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
-    # রেন্ডার ও ক্লাউডের জন্য সঠিকভাবে 0.0.0.0 এ বাইন্ড করা হয়েছে
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
