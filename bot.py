@@ -1123,7 +1123,10 @@ def handle_inline_clicks(call):
             
             if not all_users:
                 markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
-                bot.edit_message_text("👥 No users found in database yet.", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                try:
+                    bot.edit_message_text("👥 No users found in database yet.", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                except Exception:
+                    bot.send_message(call.message.chat.id, "👥 No users found in database yet.", parse_mode="Markdown", reply_markup=markup)
                 return
 
             for uid in list(all_users):
@@ -1134,9 +1137,20 @@ def handle_inline_clicks(call):
             
             markup.add(types.InlineKeyboardButton(t["back"], callback_data="admin_back"))
             try:
-                bot.edit_message_text("👥 **Registered Users List:**\nClick on any user below to edit their balance:", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+                bot.edit_message_text(
+                    "👥 **Registered Users List:**\nClick on any user below to edit their balance:", 
+                    call.message.chat.id, 
+                    call.message.message_id, 
+                    parse_mode="Markdown", 
+                    reply_markup=markup
+                )
             except Exception:
-                pass
+                bot.send_message(
+                    call.message.chat.id, 
+                    "👥 **Registered Users List:**\nClick on any user below to edit their balance:", 
+                    parse_mode="Markdown", 
+                    reply_markup=markup
+                )
         return
 
     elif call.data.startswith("admin_manage_user_"):
