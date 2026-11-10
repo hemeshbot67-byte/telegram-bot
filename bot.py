@@ -12,11 +12,9 @@ import firebase_admin
 from firebase_admin import credentials, db
 import time
 
-# Token Env থেকে নাও - কোডে সরাসরি দিও না
 TOKEN = os.environ.get("BOT_TOKEN", "9046269011:AAGKD0jYHyf79UVozWtTUo1j6rVM5QuDeNE")
 bot = telebot.TeleBot(TOKEN)
 
-# অ্যাডমিন আইডি লিস্ট
 ADMIN_IDS = [8516400686, 6911427937]
 ADMIN_PASSWORD = "101010"
 
@@ -256,7 +254,7 @@ def get_payment_methods_keyboard(user_id):
     t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton("💛 【entity-Binance Pay¦canonical_name=Binance】 (Min $2)", callback_data="pay_binance"),
+        types.InlineKeyboardButton("💛 Binance UID (Min $2)", callback_data="pay_binance"),
         types.InlineKeyboardButton("💎 Tron Network (Min $3)", callback_data="pay_tron_menu"),
         types.InlineKeyboardButton("🪙 Bsc Network (BEP20) (Min $3)", callback_data="pay_bsc_menu"),
         types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
@@ -1652,25 +1650,25 @@ def handle_inline_clicks(call):
     elif call.data == "pay_binance":
         current_amount = user_amounts.get(user_id, 2.00)
         if current_amount < 2.00:
-            bot.answer_callback_query(call.id, "❌ Minimum deposit for Binance Pay is $2.00!", show_alert=True)
+            bot.answer_callback_query(call.id, "❌ Minimum deposit for Binance UID is $2.00!", show_alert=True)
             return
         calculated_binance = current_amount * (10.082 / 10.0)
         send_val_str = f"{calculated_binance:.3f} USDT"
         order_id = f"ORD-B{random.randint(10000000, 99999999):X}"
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": "Binance Pay · USDT"}
-        deposit_text = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` (Binance Pay) | Time: {current_time}"
+        temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": "Binance UID · USDT"}
+        deposit_text = f"Order: `{order_id}` | Amt: `${current_amount:.2f}` (Binance UID) | Time: {current_time}"
         if user_id not in user_deposits:
             user_deposits[user_id] = []
         user_deposits[user_id].append({"text": deposit_text, "timestamp": time.time()})
         save_database()
         binance_order_text = (
-            "[ ORDER CREATED ]  Binance Pay · USDT\n"
+            "[ ORDER CREATED ]  Binance UID · USDT\n"
             "──────────────────────\n"
             f"  Send     ·  `{send_val_str}`\n"
             f"  Credit   ·  ${current_amount:.2f}\n"
             f"  Order    ·  `{order_id}`\n"
-            "  Network  ·  Binance Pay\n"
+            "  Network  ·  Binance UID\n"
             f"  Pay ID   ·  `1271852493`\n"
             "  Name     ·  onwerTGselling\n"
             f"  Expires  ·  {current_time}\n"
@@ -1678,7 +1676,7 @@ def handle_inline_clicks(call):
             f"Send exactly `{send_val_str}`, including all decimals. The extra decimals only identify your payment; ${current_amount:.2f} is credited.\n"
             "Your balance will be credited by admin once verified."
         )
-        bot.answer_callback_query(call.id, "Selected Binance Pay")
+        bot.answer_callback_query(call.id, "Selected Binance UID")
         try:
             bot.edit_message_text(binance_order_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_order_created_keyboard("binance", order_id, user_id))
         except Exception:
