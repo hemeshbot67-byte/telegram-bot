@@ -186,10 +186,10 @@ LANG = {
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n已购总额  ·  ${purchased_total}",
         "deposit": "选择金额 (USDT)：",
-        "history": "目 **历史菜单**\n──────────────────────\nPlease select which history you want to view:",
+        "history": "目 **历史记录菜单**\n──────────────────────\n请选择您要查看的历史记录类型：",
         "support": "📞 **支持中心**\n\n如有任何帮助、问题或协助，请直接联系我们的支持管理员：\n👉 {support_user}",
         "search": "🔍 **搜索产品**\n\n输入产品名称、国家或电话区号（例如：USA, Bangladesh, +880）：",
-        "language": "🌐 **语言设置 / Language Settings**\n\nPlease select your preferred language:",
+        "language": "🌐 **语言设置 / Language Settings**\n\n请选择您的首选语言：",
         "admin": "🛠️ **欢迎来到管理面板**\n\n在下方选择一个选项：",
         "menu_dashboard": "📊 仪表盘",
         "menu_products": "◆ 产品中心",
@@ -892,10 +892,23 @@ def handle_all_messages(message):
         return
 
     text = message.text if message.text else ""
-    if text in [t["menu_products"], t["menu_account"], t["menu_deposit"], t["menu_history"], t["menu_support"], t["menu_lang"], t["menu_search"], t["menu_admin"], t["menu_dashboard"]]:
+    
+    # Check menu button clicks by matching with both English and Chinese keys
+    is_dashboard = text in [LANG["en"]["menu_dashboard"], LANG["zh"]["menu_dashboard"]]
+    is_products = text in [LANG["en"]["menu_products"], LANG["zh"]["menu_products"]]
+    is_account = text in [LANG["en"]["menu_account"], LANG["zh"]["menu_account"]]
+    is_deposit = text in [LANG["en"]["menu_deposit"], LANG["zh"]["menu_deposit"]]
+    is_history = text in [LANG["en"]["menu_history"], LANG["zh"]["menu_history"]]
+    is_support = text in [LANG["en"]["menu_support"], LANG["zh"]["menu_support"]]
+    is_lang = text in [LANG["en"]["menu_lang"], LANG["zh"]["menu_lang"]]
+    is_search = text in [LANG["en"]["menu_search"], LANG["zh"]["menu_search"]]
+    is_admin_menu = text in [LANG["en"]["menu_admin"], LANG["zh"]["menu_admin"]]
+
+    if any([is_dashboard, is_products, is_account, is_deposit, is_history, is_support, is_lang, is_search, is_admin_menu]):
         user_states.pop(user_id, None)
         save_database()
-    if text == t["menu_admin"]:
+
+    if is_admin_menu:
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_admin_password"
             save_database()
@@ -903,7 +916,7 @@ def handle_all_messages(message):
         else:
             bot.send_message(message.chat.id, "❌ Access denied.")
         return
-    if text == t["menu_dashboard"]:
+    elif is_dashboard:
         dashboard_text = t["dashboard"] + "\n\n"
         for cat_name, cat_data in product_inventory.items():
             dashboard_text += f"📂 **{cat_name}**\n"
@@ -921,28 +934,28 @@ def handle_all_messages(message):
                 dashboard_text += f"  • Price: ${cat_data.get('price', 1.00):.2f} | {t['stock']}: {st_count}\n"
             dashboard_text += "\n"
         bot.send_message(message.chat.id, dashboard_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
-    elif text == t["menu_products"]:
+    elif is_products:
         bot.send_message(message.chat.id, t["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard(user_id))
-    elif text == t["menu_deposit"]:
+    elif is_deposit:
         user_states[user_id] = "waiting_for_deposit"
         save_database()
         bot.send_message(message.chat.id, t["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
-    elif text == t["menu_history"]:
+    elif is_history:
         bot.send_message(message.chat.id, t["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard(user_id))
-    elif text == t["menu_account"]:
+    elif is_account:
         user = message.from_user
         username = f"@{user.username}" if user.username else "N/A"
         balance_val = user_balances.get(user_id, 0.00)
         purchased_total = len(user_purchases.get(user_id, []))
         account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
-    elif text == t["menu_lang"]:
+    elif is_lang:
         bot.send_message(message.chat.id, t["language"], parse_mode="Markdown", reply_markup=get_language_keyboard(user_id))
-    elif text == t["menu_search"]:
+    elif is_search:
         user_states[user_id] = "waiting_for_search_query"
         save_database()
         bot.send_message(message.chat.id, t["search"], parse_mode="Markdown")
-    elif text == t["menu_support"]:
+    elif is_support:
         support_msg = t["support"].format(support_user=support_admin_username)
         bot.send_message(message.chat.id, support_msg, parse_mode="Markdown")
 
@@ -1202,21 +1215,44 @@ def handle_inline_clicks(call):
         user_languages[user_id] = "en"
         save_database()
         bot.answer_callback_query(call.id, "Language changed to English!")
+        # Automatically update message reply keyboard & text instantly without restarting
+        new_t = LANG["en"]
         try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.edit_message_text(
+                "🌐 **Language Settings / 语言设置**\n\nLanguage successfully changed to **English**!",
+                call.message.chat.id,
+                call.message.message_id,
+                parse_mode="Markdown",
+                reply_markup=get_language_keyboard(user_id)
+            )
         except Exception:
             pass
-        send_welcome(call.message)
+        try:
+            bot.send_message(call.message.chat.id, "👇 Main menu updated:", reply_markup=get_main_menu_keyboard(user_id))
+        except Exception:
+            pass
         return
+
     elif call.data == "lang_zh":
         user_languages[user_id] = "zh"
         save_database()
         bot.answer_callback_query(call.id, "语言已更改为中文！")
+        # Automatically update message reply keyboard & text instantly without restarting
+        new_t = LANG["zh"]
         try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.edit_message_text(
+                "🌐 **语言设置 / Language Settings**\n\n语言已成功切换为 **中文**！",
+                call.message.chat.id,
+                call.message.message_id,
+                parse_mode="Markdown",
+                reply_markup=get_language_keyboard(user_id)
+            )
         except Exception:
             pass
-        send_welcome(call.message)
+        try:
+            bot.send_message(call.message.chat.id, "👇 主菜单已更新：", reply_markup=get_main_menu_keyboard(user_id))
+        except Exception:
+            pass
         return
 
     if call.data.startswith("qty_"):
