@@ -184,8 +184,8 @@ LANG = {
         "insufficient_stock": "❌ Insufficient stock! Available stock:",
         "insufficient_balance": "❌ Insufficient balance!\nRequired:",
         "balance_text": "Remaining Balance:",
-        "deposit_select_amt": "Enter custom deposit amount (USDT, Min $2):",
-        "min_binance": "❌ Minimum deposit for Binance UID is $2.00!",
+        "deposit_select_amt": "Enter custom deposit amount (USDT, Min $3):",
+        "min_binance": "❌ Minimum deposit for Binance UID is $3.00!",
         "min_tron": "❌ Minimum deposit for this network is $3.00!",
         "order_created": "[ ORDER CREATED ]",
         "send_exact": "Send exactly",
@@ -227,8 +227,8 @@ LANG = {
         "insufficient_stock": "❌ 库存不足！可用库存：",
         "insufficient_balance": "❌ 余额不足！\n需要：",
         "balance_text": "剩余余额：",
-        "deposit_select_amt": "请输入自定义充值金额 (USDT，最低 $2)：",
-        "min_binance": "❌ 币安 UID 最低充值金额为 $2.00！",
+        "deposit_select_amt": "请输入自定义充值金额 (USDT，最低 $3)：",
+        "min_binance": "❌ 币安 UID 最低充值金额为 $3.00！",
         "min_tron": "❌ 该网络最低充值金额为 $3.00！",
         "order_created": "[ 订单已创建 ]",
         "send_exact": "请准确发送",
@@ -269,8 +269,8 @@ def get_select_amount_keyboard(user_id):
     t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
-        types.InlineKeyboardButton("2", callback_data="amt_2"),
         types.InlineKeyboardButton("3", callback_data="amt_3"),
+        types.InlineKeyboardButton("5", callback_data="amt_5"),
         types.InlineKeyboardButton("10", callback_data="amt_10"),
         types.InlineKeyboardButton("20", callback_data="amt_20"),
         types.InlineKeyboardButton("50", callback_data="amt_50"),
@@ -284,7 +284,7 @@ def get_payment_methods_keyboard(user_id):
     t = LANG[get_lang(user_id)]
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton("💛 Binance UID (Min $2)", callback_data="pay_binance"),
+        types.InlineKeyboardButton("💛 Binance UID (Min $3)", callback_data="pay_binance"),
         types.InlineKeyboardButton("💎 Tron Network (Min $3)", callback_data="pay_tron_menu"),
         types.InlineKeyboardButton("🪙 Bsc Network (BEP20) (Min $3)", callback_data="pay_bsc_menu"),
         types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
@@ -849,15 +849,14 @@ def handle_all_messages(message):
     if user_states.get(user_id) == "waiting_for_custom_amount":
         try:
             custom_amount = float(message.text.strip())
-            selected_method = user_states.get("current_method", "general")
-            min_limit = 2.00 if selected_method == "binance" else 3.00
+            min_limit = 3.00
             if custom_amount < min_limit:
                 bot.send_message(message.chat.id, f"❌ Minimum deposit amount is ${min_limit:.2f}. Please enter again:")
                 return
             user_amounts[user_id] = custom_amount
             user_states[user_id] = "waiting_for_payment_method"
             save_database()
-            payment_text = f"💰 **Selected Amount:** ${custom_amount:.2f}\n\nPlease select your preferred payment method:"
+            payment_text = f"💰 **Selected Amount:** ${custom_amount:.2f}\n\nPlease select your preferred payment method:" if lang_code == "en" else f"💰 **已选金额：** ${custom_amount:.2f}\n\n请选择您的首选付款方式："
             bot.send_message(message.chat.id, payment_text, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard(user_id))
         except ValueError:
             bot.send_message(message.chat.id, "❌ Invalid amount. Please enter a valid number (e.g., 5 or 10):")
@@ -873,7 +872,7 @@ def handle_all_messages(message):
         order_data = temp_admin_data.get(f"order_info_{user_id}", {})
         order_id = order_data.get("order_id", "N/A")
         method_name = order_data.get("method", "General Deposit")
-        current_amount = user_amounts.get(user_id, 2.00)
+        current_amount = user_amounts.get(user_id, 3.00)
         admin_alert = (
             f"🔔 **New Deposit Verification Request!**\n\n"
             f"👤 User ID: `{user_id}`\n"
@@ -1727,8 +1726,8 @@ def handle_inline_clicks(call):
         return
 
     elif call.data == "pay_binance":
-        current_amount = user_amounts.get(user_id, 2.00)
-        if current_amount < 2.00:
+        current_amount = user_amounts.get(user_id, 3.00)
+        if current_amount < 3.00:
             bot.answer_callback_query(call.id, t["min_binance"], show_alert=True)
             return
         calculated_binance = current_amount * (10.082 / 10.0)
