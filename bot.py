@@ -1,4 +1,4 @@
-Import telebot
+import telebot
 from telebot import types
 import pyzipper
 from datetime import datetime, timezone, timedelta
@@ -12,7 +12,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import time
 
-TOKEN = os.environ.get("BOT_TOKEN", "9046269011:AAGKD0jYHyf79UVozWtTUo1j6rVM5QuDeNE")
+TOKEN = os.environ.get("BOT_TOKEN", "9046269011:AAF4UrAKDlovJzv-NNyjWb9-6q8hn7w1-N8")
 bot = telebot.TeleBot(TOKEN)
 
 ADMIN_IDS = [8516400686, 6911427937]
