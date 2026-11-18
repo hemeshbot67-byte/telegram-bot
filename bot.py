@@ -306,7 +306,6 @@ def tr_name(name, lang_code):
     low = raw.lower()
     if low in ZH_NAMES_LOWER:
         return ZH_NAMES_LOWER[low]
-    # যদি নামের সাথে কোড বা ব্র্যাকেট থাকে যেমন "Bangladesh (+880)" বা "USA - Old"
     result = raw
     for eng_key in sorted(ZH_NAMES_LOWER.keys(), key=len, reverse=True):
         if len(eng_key) >= 2:
@@ -338,24 +337,24 @@ def background_cleanup_job():
     while True:
         try:
             now = time.time()
-            thirty_hours_seconds = 30 * 60 * 60
+            twelve_hours_seconds = 12 * 60 * 60
             updated = False
             for uid in list(user_purchases.keys()):
-                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < thirty_hours_seconds]
+                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < twelve_hours_seconds]
                 if len(filtered_purchases) != len(user_purchases[uid]):
                     user_purchases[uid] = filtered_purchases
                     updated = True
             for uid in list(user_deposits.keys()):
-                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < thirty_hours_seconds]
+                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < twelve_hours_seconds]
                 if len(filtered_deposits) != len(user_deposits[uid]):
                     user_deposits[uid] = filtered_deposits
                     updated = True
             if updated:
                 save_database()
-                print("Old history older than 30 hours successfully cleaned up.")
+                print("Old history older than 12 hours successfully cleaned up.")
         except Exception as e:
             print(f"Error in background cleanup job: {e}")
-        time.sleep(86400)
+        time.sleep(3600)
 
 LANG = {
     "en": {
@@ -2154,9 +2153,9 @@ def handle_inline_clicks(call):
             raw_p = p.get("text", "") if isinstance(p, dict) else str(p)
             formatted_purchases.append(tr_history_line(raw_p, lang_code))
         if lang_code == "zh":
-            hist_text = "📦 **购买历史记录（最近 30 小时）**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "暂无购买记录，或超过 30 小时的记录已自动清理。")
+            hist_text = "📦 **购买历史记录（最近 12 小时）**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "暂无购买记录，或超过 12 小时的记录已自动清理。")
         else:
-            hist_text = "📦 **PURCHASE HISTORY (Last 30 Hours)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 30 hours cleared.")
+            hist_text = "📦 **PURCHASE HISTORY (Last 12 Hours)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 12 hours cleared.")
         try:
             bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -2171,9 +2170,9 @@ def handle_inline_clicks(call):
             raw_d = d.get("text", "") if isinstance(d, dict) else str(d)
             formatted_deposits.append(tr_history_line(raw_d, lang_code))
         if lang_code == "zh":
-            dep_text = "💰 **充值历史记录（最近 30 小时）**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "暂无充值记录，或超过 30 小时的记录已自动清理。")
+            dep_text = "💰 **充值历史记录（最近 12 小时）**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "暂无充值记录，或超过 12 小时的记录已自动清理。")
         else:
-            dep_text = "💰 **DEPOSIT HISTORY (Last 30 Hours)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 30 hours cleared.")
+            dep_text = "💰 **DEPOSIT HISTORY (Last 12 Hours)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 12 hours cleared.")
         try:
             bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
