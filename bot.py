@@ -11,6 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 import time
+import re
 
 # Environment Variables থেকে বট টোকেন এবং ডাটাবেইজ লিংক লোড করা হচ্ছে
 TOKEN = os.environ.get("BOT_TOKEN")
@@ -137,38 +138,201 @@ support_admin_username = db_data.get("support_admin", "@tianpeng7777")
 product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
 temp_admin_data = {}
 
-# ক্যাটাগরি এবং দেশের নামের চায়না অনুবাদ ম্যাপ
-ZH_NAMES = {
-    "Telegram Protocol": "Telegram 协议号",
-    "Telegram Premium": "Telegram 会员",
-    "Google Voice": "谷歌语音 (GV)",
-    "Gmail": "谷歌邮箱",
-    "VPN": "VPN 加速器",
-    "Bangladesh": "孟加拉国",
-    "India": "印度",
-    "Usa": "美国",
-    "USA": "美国",
-    "Brazil": "巴西",
-    "Canada": "加拿大",
-    "United Kingdom": "英国",
-    "Russia": "俄罗斯",
-    "Indonesia": "印度尼西亚",
-    "Vietnam": "越南",
-    "Philippines": "菲律宾",
-    "Malaysia": "马来西亚",
-    "Thailand": "泰国",
-    "Pakistan": "巴基斯坦",
-    "Nigeria": "尼日利亚",
-    "Egypt": "埃及",
-    "Turkey": "土耳其",
-    "Germany": "德国",
-    "France": "法国"
+# সব দেশের নাম, প্রোডাক্ট ক্যাটাগরি এবং সাধারণ সাব-ক্যাটাগরির চায়না অনুবাদ (Case-Insensitive)
+ZH_NAMES_LOWER = {
+    # Categories
+    "telegram protocol": "Telegram 协议号",
+    "telegram premium": "Telegram 会员",
+    "google voice": "谷歌语音",
+    "gv": "谷歌语音",
+    "gmail": "谷歌邮箱",
+    "vpn": "VPN 加速器",
+    "netflix": "奈飞账号",
+    "facebook": "脸书账号",
+    "instagram": "Instagram 账号",
+    "twitter": "推特账号",
+    "x": "X 账号",
+    "tiktok": "TikTok 账号",
+    "whatsapp": "WhatsApp 账号",
+    "discord": "Discord 账号",
+    "microsoft": "微软账号",
+    "outlook": "Outlook 邮箱",
+    "hotmail": "Hotmail 邮箱",
+    "yahoo": "雅虎邮箱",
+    "apple id": "苹果账号",
+    "chatgpt": "ChatGPT 账号",
+    "openai": "OpenAI 账号",
+    "spotify": "Spotify 账号",
+    "youtube": "油管账号",
+
+    # Countries (সব দেশের নাম)
+    "bangladesh": "孟加拉国",
+    "india": "印度",
+    "usa": "美国",
+    "us": "美国",
+    "united states": "美国",
+    "united states of america": "美国",
+    "america": "美国",
+    "brazil": "巴西",
+    "canada": "加拿大",
+    "uk": "英国",
+    "united kingdom": "英国",
+    "britain": "英国",
+    "great britain": "英国",
+    "england": "英国",
+    "russia": "俄罗斯",
+    "indonesia": "印度尼西亚",
+    "vietnam": "越南",
+    "philippines": "菲律宾",
+    "malaysia": "马来西亚",
+    "thailand": "泰国",
+    "pakistan": "巴基斯坦",
+    "nigeria": "尼日利亚",
+    "egypt": "埃及",
+    "turkey": "土耳其",
+    "turkiye": "土耳其",
+    "germany": "德国",
+    "france": "法国",
+    "italy": "意大利",
+    "spain": "西班牙",
+    "portugal": "葡萄牙",
+    "netherlands": "荷兰",
+    "holland": "荷兰",
+    "belgium": "比利时",
+    "switzerland": "瑞士",
+    "austria": "奥地利",
+    "sweden": "瑞典",
+    "norway": "挪威",
+    "denmark": "丹麦",
+    "finland": "芬兰",
+    "poland": "波兰",
+    "ukraine": "乌克兰",
+    "romania": "罗马尼亚",
+    "greece": "希腊",
+    "czech republic": "捷克",
+    "czechia": "捷克",
+    "hungary": "匈牙利",
+    "ireland": "爱尔兰",
+    "australia": "澳大利亚",
+    "new zealand": "新西兰",
+    "japan": "日本",
+    "south korea": "韩国",
+    "korea": "韩国",
+    "china": "中国",
+    "hong kong": "中国香港",
+    "taiwan": "中国台湾",
+    "macau": "中国澳门",
+    "singapore": "新加坡",
+    "myanmar": "缅甸",
+    "cambodia": "柬埔寨",
+    "laos": "老挝",
+    "nepal": "尼泊尔",
+    "sri lanka": "斯里兰卡",
+    "afghanistan": "阿富汗",
+    "iran": "伊朗",
+    "iraq": "伊拉克",
+    "saudi arabia": "沙特阿拉伯",
+    "uae": "阿联酋",
+    "united arab emirates": "阿联酋",
+    "dubai": "迪拜",
+    "qatar": "卡塔尔",
+    "kuwait": "科威特",
+    "oman": "阿曼",
+    "bahrain": "巴林",
+    "jordan": "约旦",
+    "lebanon": "黎巴嫩",
+    "israel": "以色列",
+    "kazakhstan": "哈萨克斯坦",
+    "uzbekistan": "乌兹别克斯坦",
+    "kyrgyzstan": "吉尔吉斯斯坦",
+    "tajikistan": "塔吉克斯坦",
+    "turkmenistan": "土库曼斯坦",
+    "azerbaijan": "阿塞拜疆",
+    "armenia": "亚美尼亚",
+    "georgia": "格鲁吉亚",
+    "south africa": "南非",
+    "kenya": "肯尼亚",
+    "ghana": "加纳",
+    "ethiopia": "埃塞俄比亚",
+    "morocco": "摩洛哥",
+    "algeria": "阿尔及利亚",
+    "tunisia": "突尼斯",
+    "tanzania": "坦桑尼亚",
+    "uganda": "乌干达",
+    "cameroon": "喀麦隆",
+    "senegal": "塞内加尔",
+    "ivory coast": "科特迪瓦",
+    "mexico": "墨西哥",
+    "argentina": "阿根廷",
+    "colombia": "哥伦比亚",
+    "chile": "智利",
+    "peru": "秘鲁",
+    "venezuela": "委内瑞拉",
+    "ecuador": "厄瓜多尔",
+    "bolivia": "玻利维亚",
+    "paraguay": "巴拉圭",
+    "uruguay": "乌拉圭",
+    "cuba": "古巴",
+    "dominican republic": "多米尼加",
+    "puerto rico": "波多黎各",
+    "panama": "巴拿马",
+    "costa rica": "哥斯达黎加",
+    "guatemala": "危地马拉",
+    "honduras": "洪都拉斯",
+
+    # Common sub-category words
+    "old": "老号",
+    "new": "新号",
+    "fresh": "全新号",
+    "aged": "老账号",
+    "verified": "已验证",
+    "personal": "个人号",
+    "business": "商业号",
+    "1 month": "1个月",
+    "3 months": "3个月",
+    "6 months": "6个月",
+    "1 year": "1年",
+    "12 months": "12个月",
+    "lifetime": "永久",
+    "random": "随机国家",
+    "mix": "混合国家"
 }
 
 def tr_name(name, lang_code):
-    if lang_code == "zh":
-        return ZH_NAMES.get(name, name)
-    return name
+    """যেকোনো ক্যাটাগরি, দেশের নাম বা সাব-ফোল্ডারকে চায়না ভাষায় রূপান্তর করে (Case-Insensitive)"""
+    if not name or lang_code != "zh":
+        return name
+    raw = str(name).strip()
+    low = raw.lower()
+    if low in ZH_NAMES_LOWER:
+        return ZH_NAMES_LOWER[low]
+    # যদি নামের সাথে কোড বা ব্র্যাকেট থাকে যেমন "Bangladesh (+880)" বা "USA - Old"
+    result = raw
+    for eng_key in sorted(ZH_NAMES_LOWER.keys(), key=len, reverse=True):
+        if len(eng_key) >= 2:
+            pattern = re.compile(r'\b' + re.escape(eng_key) + r'\b', re.IGNORECASE)
+            if pattern.search(result):
+                result = pattern.sub(ZH_NAMES_LOWER[eng_key], result)
+    return result
+
+def tr_history_line(text, lang_code):
+    """পুরনো ইংরেজি হিস্ট্রি লাইনগুলোকে চায়না ভাষায় রূপান্তর করে"""
+    if lang_code != "zh" or not text:
+        return text
+    res = str(text)
+    replacements = [
+        ("Bought ", "已购买 "),
+        (" Protocol (ZIP file) for ", " 协议号 (压缩包) - "),
+        (" for ", " - "),
+        ("Order: ", "订单: "),
+        ("Amt: ", "金额: "),
+        ("Time: ", "时间: "),
+        ("Binance UID", "币安内部转账"),
+        (" UTC", "")
+    ]
+    for old_s, new_s in replacements:
+        res = res.replace(old_s, new_s)
+    return tr_name(res, "zh")
 
 def background_cleanup_job():
     while True:
@@ -874,7 +1038,7 @@ def handle_all_messages(message):
         markup = types.InlineKeyboardMarkup(row_width=1)
         found_any = False
         for country, data in product_inventory["Telegram Protocol"]["items"].items():
-            zh_country = ZH_NAMES.get(country, "").lower()
+            zh_country = tr_name(country, "zh").lower()
             if query in country.lower() or query in data.get("code", "").lower() or (zh_country and query in zh_country):
                 zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
                 stock_count = len(data.get("accounts", [])) + zip_stock_count
@@ -883,7 +1047,7 @@ def handle_all_messages(message):
                 markup.add(types.InlineKeyboardButton(f"🌐 {disp_country} ({data.get('code', '')}) — {t['price']}: ${price:.2f} | {t['stock']}: {stock_count}", callback_data=f"select_country_{country}"))
                 found_any = True
         for p_name, p_data in product_inventory.items():
-            zh_p_name = ZH_NAMES.get(p_name, "").lower()
+            zh_p_name = tr_name(p_name, "zh").lower()
             if p_name != "Telegram Protocol" and (query in p_name.lower() or (zh_p_name and query in zh_p_name)):
                 disp_pname = tr_name(p_name, lang_code)
                 if p_data.get("type") == "sub_categories" or "items" in p_data:
@@ -1173,7 +1337,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 single_zip_buffer.seek(0)
                 if len(files_in_zip) == 0:
                     zip_list.pop(0)
-                purchase_text = f"购买了 {disp_country} 协议号 (压缩包) - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key} Protocol (ZIP file) for ${price_per_unit:.2f}"
+                purchase_text = f"已购买 {disp_country} 协议号 (压缩包) - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key} Protocol (ZIP file) for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
@@ -1182,7 +1346,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 bot.send_document(
                     chat_id,
                     document=single_zip_buffer,
-                    visible_file_name=f"{item_key}_{file_short_name}.zip",
+                    visible_file_name=f"{disp_country}_{file_short_name}.zip",
                     caption=f"{t['purchase_success']}\n\n🌍 {t['country_lbl']}: {disp_country}\n📦 {t['file_lbl']}: `{file_short_name}`\n🔐 {t['tfa_zip_lbl']}: `{tfa_code}`\n💵 {t['paid_lbl']}: ${price_per_unit:.2f}\n\n{t['balance_text']} ${user_balances[user_id]:.2f}",
                     parse_mode="Markdown",
                     reply_markup=get_main_menu_keyboard(user_id)
@@ -1191,7 +1355,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 purchased_item = accounts_list.pop(0)
                 acc_num = purchased_item.get("number", "N/A")
                 acc_2fa = purchased_item.get("2fa", "N/A")
-                purchase_text = f"购买了 {disp_country}: `{acc_num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key}: `{acc_num}` for ${price_per_unit:.2f}"
+                purchase_text = f"已购买 {disp_country}: `{acc_num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key}: `{acc_num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
@@ -1208,7 +1372,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
             if len(sub_dict.get("accounts", [])) > 0:
                 item = sub_dict["accounts"].pop(0)
                 num = item.get("number", "N/A")
-                purchase_text = f"购买了 {disp_p} -> {disp_s}: `{num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {p_cat} -> {s_item}: `{num}` for ${price_per_unit:.2f}"
+                purchase_text = f"已购买 {disp_p} -> {disp_s}: `{num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {p_cat} -> {s_item}: `{num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
@@ -1222,7 +1386,7 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
             if len(accounts_list) > 0:
                 item = accounts_list.pop(0)
                 num = item.get("number", "N/A")
-                purchase_text = f"购买了 {disp_item}: `{num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key}: `{num}` for ${price_per_unit:.2f}"
+                purchase_text = f"已购买 {disp_item}: `{num}` - ${price_per_unit:.2f}" if lang_code == "zh" else f"Bought {item_key}: `{num}` for ${price_per_unit:.2f}"
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
@@ -1987,10 +2151,8 @@ def handle_inline_clicks(call):
         purchases = user_purchases.get(user_id, [])
         formatted_purchases = []
         for p in purchases:
-            if isinstance(p, dict):
-                formatted_purchases.append(p.get("text", ""))
-            else:
-                formatted_purchases.append(str(p))
+            raw_p = p.get("text", "") if isinstance(p, dict) else str(p)
+            formatted_purchases.append(tr_history_line(raw_p, lang_code))
         if lang_code == "zh":
             hist_text = "📦 **购买历史记录（最近 30 小时）**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "暂无购买记录，或超过 30 小时的记录已自动清理。")
         else:
@@ -2006,10 +2168,8 @@ def handle_inline_clicks(call):
         deposits = user_deposits.get(user_id, [])
         formatted_deposits = []
         for d in deposits:
-            if isinstance(d, dict):
-                formatted_deposits.append(d.get("text", ""))
-            else:
-                formatted_deposits.append(str(d))
+            raw_d = d.get("text", "") if isinstance(d, dict) else str(d)
+            formatted_deposits.append(tr_history_line(raw_d, lang_code))
         if lang_code == "zh":
             dep_text = "💰 **充值历史记录（最近 30 小时）**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "暂无充值记录，或超过 30 小时的记录已自动清理。")
         else:
