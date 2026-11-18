@@ -12,7 +12,16 @@ import firebase_admin
 from firebase_admin import credentials, db
 import time
 
-TOKEN = os.environ.get("BOT_TOKEN", "9046269011:AAF4UrAKDlovJzv-NNyjWb9-6q8hn7w1-N8")
+# Environment Variables থেকে বট টোকেন এবং ডাটাবেইজ লিংক লোড করা হচ্ছে
+TOKEN = os.environ.get("BOT_TOKEN")
+FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL")
+
+if not TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is missing! Please set it in your hosting dashboard.")
+
+if not FIREBASE_DB_URL:
+    raise ValueError("FIREBASE_DB_URL environment variable is missing! Please set it in your hosting dashboard.")
+
 bot = telebot.TeleBot(TOKEN)
 
 ADMIN_IDS = [8516400686, 6911427937]
@@ -30,7 +39,7 @@ else:
     cred = credentials.Certificate("firebase_credentials.json")
 
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://telegrambotdb-e08fd-default-rtdb.firebaseio.com'
+    'databaseURL': FIREBASE_DB_URL
 })
 
 DEFAULT_DATABASE = {
@@ -196,7 +205,7 @@ LANG = {
         "no_history": "No records yet."
     },
     "zh": {
-        "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
+        "welcome": "欢迎, {user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各种日常需求、数字和实体产品——批发/零售！\n\n‣ **第一次在我们这里购买？** 批量订购前请购买小额测试批次，以免产生不必要的纠纷。感谢您的合作！\n\n‣ **免责声明：** 所有产品均经过质量和测试目的验证，不得用于任何非法活动。请遵守您当地当地的法律法规。\n────────────────────────\n‣ 使用下方的菜单开始。",
         "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有产品的当前库存和价格表：",
         "products": "📁 **选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户 ID  ·  `{user_id}`\n用户名  ·  {username}\n余额  ·  ${balance:.2f}\n已购总额  ·  {purchased_total}",
