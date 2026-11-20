@@ -1,19 +1,18 @@
 import telebot
 from telebot import types
 import pyzipper
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import random
 import os
 import io
 import json
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import firebase_admin
 from firebase_admin import credentials, db
 import time
 import re
 
-# Environment Variables থেকে বট টোকেন এবং ডাটাবেইজ লিংক লোড করা হচ্ছে
 TOKEN = os.environ.get("BOT_TOKEN")
 FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL")
 
@@ -23,7 +22,7 @@ if not TOKEN:
 if not FIREBASE_DB_URL:
     raise ValueError("FIREBASE_DB_URL environment variable is missing! Please set it in your hosting dashboard.")
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(TOKEN, threaded=True)
 
 ADMIN_IDS = [8516400686, 6911427937]
 ADMIN_PASSWORD = "101010"
@@ -88,59 +87,95 @@ def _async_save(path, data):
     except Exception as e:
         print(f"Error saving to Firebase ({path}): {e}")
 
-def save_database(path="/", data=None):
-    if data is None:
-        data = {
-            "user_amounts": {str(k): v for k, v in user_amounts.items()},
-            "user_states": {str(k): v for k, v in user_states.items()},
-            "user_balances": {str(k): v for k, v in user_balances.items()},
-            "user_purchases": {str(k): v for k, v in user_purchases.items()},
-            "user_deposits": {str(k): v for k, v in user_deposits.items()},
-            "used_txids": list(used_txids),
-            "user_languages": {str(k): v for k, v in user_languages.items()},
-            "all_users": [str(u) for u in all_users],
-            "support_admin": support_admin_username,
-            "product_inventory": product_inventory
-        }
+def save_path(path, data):
+    """নির্দিষ্ট পাথে ডেটা সেভ করে, অন্য কোনো ডাটা মুছে ফেলে না।"""
     threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
 
-db_data = load_database()
-user_amounts = {int(k): v for k, v in db_data.get("user_amounts", {}).items()}
-user_states = {int(k): v for k, v in db_data.get("user_states", {}).items()}
-user_balances = {int(k): v for k, v in db_data.get("user_balances", {}).items()}
+def sync_balance(uid):
+    save_path(f"/user_balances/{int(uid)}", round(float(user_balances.get(int(uid), 0.0)), 2))
 
-raw_purchases = db_data.get("user_purchases", {})
+def sync_purchases(uid):
+    save_path(f"/user_purchases/{int(uid)}", user_purchases.get(int(uid), []))
+
+def sync_deposits(uid):
+    save_path(f"/user_deposits/{int(uid)}", user_deposits.get(int(uid), []))
+
+def sync_lang(uid):
+    save_path(f"/user_languages/{int(uid)}", user_languages.get(int(uid), "en"))
+
+def sync_state(uid):
+    uid_str = str(int(uid))
+    if int(uid) in user_states:
+        save_path(f"/user_states/{uid_str}", user_states[int(uid)])
+    else:
+        save_path(f"/user_states/{uid_str}", None)
+
+def sync_amount(uid):
+    save_path(f"/user_amounts/{int(uid)}", user_amounts.get(int(uid), 3.0))
+
+def sync_all_users():
+    save_path("/all_users", [str(u) for u in sorted(all_users)])
+
+def sync_used_txids():
+    save_path("/used_txids", list(used_txids))
+
+def sync_support_admin():
+    save_path("/support_admin", support_admin_username)
+
+def sync_inventory():
+    save_path("/product_inventory", product_inventory)
+
+db_data = load_database()
+user_amounts = {int(k): v for k, v in (db_data.get("user_amounts") or {}).items()}
+user_states = {int(k): v for k, v in (db_data.get("user_states") or {}).items()}
+user_balances = {int(k): float(v) for k, v in (db_data.get("user_balances") or {}).items()}
+
+raw_purchases = db_data.get("user_purchases") or {}
 user_purchases = {}
 for k, v in raw_purchases.items():
     uid = int(k)
     user_purchases[uid] = []
-    for item in v:
-        if isinstance(item, dict):
-            user_purchases[uid].append(item)
-        else:
-            user_purchases[uid].append({"text": str(item), "timestamp": time.time()})
+    if isinstance(v, list):
+        for item in v:
+            if isinstance(item, dict):
+                user_purchases[uid].append(item)
+            else:
+                user_purchases[uid].append({"text": str(item), "timestamp": time.time()})
 
-raw_deposits = db_data.get("user_deposits", {})
+raw_deposits = db_data.get("user_deposits") or {}
 user_deposits = {}
 for k, v in raw_deposits.items():
     uid = int(k)
     user_deposits[uid] = []
-    for item in v:
-        if isinstance(item, dict):
-            user_deposits[uid].append(item)
-        else:
-            user_deposits[uid].append({"text": str(item), "timestamp": time.time()})
+    if isinstance(v, list):
+        for item in v:
+            if isinstance(item, dict):
+                user_deposits[uid].append(item)
+            else:
+                user_deposits[uid].append({"text": str(item), "timestamp": time.time()})
 
-used_txids = set(db_data.get("used_txids", []))
-user_languages = {int(k): v for k, v in db_data.get("user_languages", {}).items()}
-all_users = set(int(u) for u in db_data.get("all_users", []))
-support_admin_username = db_data.get("support_admin", "@tianpeng7777")
-product_inventory = db_data.get("product_inventory", DEFAULT_DATABASE["product_inventory"])
+used_txids = set(db_data.get("used_txids") or [])
+user_languages = {int(k): v for k, v in (db_data.get("user_languages") or {}).items()}
+all_users = set()
+for u in (db_data.get("all_users") or []):
+    try:
+        all_users.add(int(u))
+    except Exception:
+        pass
+
+support_admin_username = db_data.get("support_admin") or "@tianpeng7777"
+loaded_inventory = db_data.get("product_inventory")
+if isinstance(loaded_inventory, dict) and loaded_inventory:
+    product_inventory = loaded_inventory
+    for default_cat, default_val in DEFAULT_DATABASE["product_inventory"].items():
+        if default_cat not in product_inventory:
+            product_inventory[default_cat] = default_val
+else:
+    product_inventory = DEFAULT_DATABASE["product_inventory"]
+
 temp_admin_data = {}
 
-# সব দেশের নাম, প্রোডাক্ট ক্যাটাগরি এবং সাধারণ সাব-ক্যাটাগরির চায়না অনুবাদ (Case-Insensitive)
 ZH_NAMES_LOWER = {
-    # Categories
     "telegram protocol": "Telegram 协议号",
     "telegram premium": "Telegram 会员",
     "google voice": "谷歌语音",
@@ -164,8 +199,6 @@ ZH_NAMES_LOWER = {
     "openai": "OpenAI 账号",
     "spotify": "Spotify 账号",
     "youtube": "油管账号",
-
-    # Countries (সব দেশের নাম)
     "bangladesh": "孟加拉国",
     "india": "印度",
     "usa": "美国",
@@ -279,8 +312,6 @@ ZH_NAMES_LOWER = {
     "costa rica": "哥斯达黎加",
     "guatemala": "危地马拉",
     "honduras": "洪都拉斯",
-
-    # Common sub-category words
     "old": "老号",
     "new": "新号",
     "fresh": "全新号",
@@ -299,7 +330,6 @@ ZH_NAMES_LOWER = {
 }
 
 def tr_name(name, lang_code):
-    """যেকোনো ক্যাটাগরি, দেশের নাম বা সাব-ফোল্ডারকে চায়না ভাষায় রূপান্তর করে (Case-Insensitive)"""
     if not name or lang_code != "zh":
         return name
     raw = str(name).strip()
@@ -315,7 +345,6 @@ def tr_name(name, lang_code):
     return result
 
 def tr_history_line(text, lang_code):
-    """পুরনো ইংরেজি হিস্ট্রি লাইনগুলোকে চায়না ভাষায় রূপান্তর করে"""
     if lang_code != "zh" or not text:
         return text
     res = str(text)
@@ -334,26 +363,8 @@ def tr_history_line(text, lang_code):
     return tr_name(res, "zh")
 
 def background_cleanup_job():
+    # কোনো ডাটা যেন রিমুভ না হয় সেজন্য অটো-ক্লিনআপ বন্ধ রাখা হয়েছে
     while True:
-        try:
-            now = time.time()
-            twelve_hours_seconds = 12 * 60 * 60
-            updated = False
-            for uid in list(user_purchases.keys()):
-                filtered_purchases = [p for p in user_purchases[uid] if (now - p.get("timestamp", now)) < twelve_hours_seconds]
-                if len(filtered_purchases) != len(user_purchases[uid]):
-                    user_purchases[uid] = filtered_purchases
-                    updated = True
-            for uid in list(user_deposits.keys()):
-                filtered_deposits = [d for d in user_deposits[uid] if (now - d.get("timestamp", now)) < twelve_hours_seconds]
-                if len(filtered_deposits) != len(user_deposits[uid]):
-                    user_deposits[uid] = filtered_deposits
-                    updated = True
-            if updated:
-                save_database()
-                print("Old history older than 12 hours successfully cleaned up.")
-        except Exception as e:
-            print(f"Error in background cleanup job: {e}")
         time.sleep(3600)
 
 LANG = {
@@ -741,8 +752,10 @@ def get_user_detail_text(target_uid):
 def send_welcome(message):
     user_id = message.from_user.id
     user_states.pop(user_id, None)
-    all_users.add(user_id)
-    save_database()
+    sync_state(user_id)
+    if user_id not in all_users:
+        all_users.add(user_id)
+        sync_all_users()
     lang_code = get_lang(user_id)
     default_name = "用户" if lang_code == "zh" else "User"
     user_name = message.from_user.first_name or default_name
@@ -754,7 +767,7 @@ def admin_command(message):
     user_id = message.from_user.id
     if is_admin(user_id):
         user_states[user_id] = "waiting_for_admin_password"
-        save_database()
+        sync_state(user_id)
         bot.send_message(message.chat.id, "🔐 Please enter admin password to access Admin Panel:")
     else:
         bot.send_message(message.chat.id, "❌ You are not authorized to access the Admin Panel.")
@@ -763,7 +776,7 @@ def admin_command(message):
 def cancel_operation(message):
     user_id = message.from_user.id
     user_states.pop(user_id, None)
-    save_database()
+    sync_state(user_id)
     t = LANG[get_lang(user_id)]
     bot.send_message(message.chat.id, t["cancelled_op"], reply_markup=get_main_menu_keyboard(user_id))
 
@@ -777,6 +790,7 @@ def handle_document_uploads(message):
         if country_name in product_inventory["Telegram Protocol"]["items"]:
             temp_admin_data[f"zip_bytes_{user_id}"] = list(downloaded_file)
             user_states[user_id] = "waiting_for_zip_2fa"
+            sync_state(user_id)
             response_msg = (
                 f"✅ ZIP File uploaded successfully for **{country_name}**!\n\n"
                 f"🔐 Now, please send the **Password / 2FA Code** for this ZIP file so it can be verified and read properly:"
@@ -785,35 +799,39 @@ def handle_document_uploads(message):
         else:
             bot.send_message(message.chat.id, "❌ Invalid country selected.")
             user_states.pop(user_id, None)
+            sync_state(user_id)
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio'])
 def handle_all_messages(message):
     user_id = message.from_user.id
-    all_users.add(user_id)
+    if user_id not in all_users:
+        all_users.add(user_id)
+        sync_all_users()
     if user_id not in user_balances:
         user_balances[user_id] = 0.00
+        sync_balance(user_id)
     if user_id not in user_purchases:
         user_purchases[user_id] = []
     if user_id not in user_deposits:
         user_deposits[user_id] = []
-    save_database()
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
 
     if user_states.get(user_id) == "waiting_for_mgmt_search":
         if is_admin(user_id):
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
             try:
                 target = int(message.text.strip())
-            except:
+            except Exception:
                 bot.send_message(message.chat.id, "❌ Invalid User ID! Enter numbers only, e.g.: `123456789`", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 return
             if target not in all_users:
                 all_users.add(target)
-                if target not in user_balances:
-                    user_balances[target] = 0.0
-                save_database()
+                sync_all_users()
+            if target not in user_balances:
+                user_balances[target] = 0.0
+                sync_balance(target)
             bot.send_message(message.chat.id, get_user_detail_text(target), parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target))
         return
 
@@ -825,7 +843,7 @@ def handle_all_messages(message):
             target_uid = int(parts[1])
             try:
                 amount = float(message.text.strip())
-            except:
+            except Exception:
                 bot.send_message(message.chat.id, "❌ Invalid amount! e.g.: `10` or `5.50`")
                 return
             old_bal = user_balances.get(target_uid, 0.0)
@@ -844,8 +862,9 @@ def handle_all_messages(message):
                 new_bal = old_bal
                 msg_action = ""
             user_balances[target_uid] = round(new_bal, 2)
+            sync_balance(target_uid)
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
             bot.send_message(
                 message.chat.id,
                 f"✅ **Balance Updated!**\n\n👤 User ID: `{target_uid}`\n{msg_action}\n💰 Old Balance: `${old_bal:.2f}`\n💰 New Balance: **${new_bal:.2f}**",
@@ -855,7 +874,7 @@ def handle_all_messages(message):
                 target_lang = get_lang(target_uid)
                 notif = f"💰 **管理员已更新您的余额！**\n\n当前最新余额：**${new_bal:.2f}**" if target_lang == "zh" else f"💰 **Your balance has been updated by Admin!**\n\nNew Balance: **${new_bal:.2f}**"
                 bot.send_message(target_uid, notif, parse_mode="Markdown")
-            except:
+            except Exception:
                 pass
         return
 
@@ -863,7 +882,7 @@ def handle_all_messages(message):
         if is_admin(user_id):
             entered_pass = message.text.strip()
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
             if entered_pass == ADMIN_PASSWORD:
                 bot.send_message(message.chat.id, "✅ Password correct!\n\n" + t["admin"], parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
@@ -877,8 +896,9 @@ def handle_all_messages(message):
             if not new_support.startswith("@"):
                 new_support = "@" + new_support
             support_admin_username = new_support
+            sync_support_admin()
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
             bot.send_message(message.chat.id, f"✅ Support admin username successfully updated to: **{support_admin_username}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
         return
 
@@ -889,10 +909,10 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, f"⚠️ Category **{new_cat_name}** already exists!")
             else:
                 product_inventory[new_cat_name] = {"type": "sub_categories", "items": {}}
-                save_database()
+                sync_inventory()
                 bot.send_message(message.chat.id, f"✅ Successfully added new product category: **{new_cat_name}**", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_protocol_price_"):
@@ -902,14 +922,14 @@ def handle_all_messages(message):
                 new_price = float(message.text.strip())
                 if country_name in product_inventory["Telegram Protocol"]["items"]:
                     product_inventory["Telegram Protocol"]["items"][country_name]["price"] = new_price
-                    save_database()
+                    sync_inventory()
                     bot.send_message(message.chat.id, f"✅ Successfully updated price for **{country_name}** to **${new_price:.2f}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 else:
                     bot.send_message(message.chat.id, "❌ Country not found.")
             except ValueError:
                 bot.send_message(message.chat.id, "❌ Invalid price! Please enter a valid number (e.g., `1.50`).")
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_rename_country_"):
@@ -921,12 +941,12 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, f"⚠️ Country **{new_country}** already exists!")
             elif old_country in proto_items:
                 proto_items[new_country] = proto_items.pop(old_country)
-                save_database()
+                sync_inventory()
                 bot.send_message(message.chat.id, f"✅ Successfully renamed country **{old_country}** to **{new_country}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Country not found.")
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_subcat_name_"):
@@ -940,10 +960,10 @@ def handle_all_messages(message):
                     bot.send_message(message.chat.id, f"⚠️ Sub-folder **{sub_name}** already exists inside {parent_cat}!")
                 else:
                     product_inventory[parent_cat]["items"][sub_name] = {"price": 1.00, "accounts": []}
-                    save_database()
+                    sync_inventory()
                     bot.send_message(message.chat.id, f"✅ Successfully created sub-folder **{sub_name}** inside **{parent_cat}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_rename_cat_"):
@@ -954,12 +974,12 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, f"⚠️ Category **{new_name}** already exists!")
             elif old_name in product_inventory:
                 product_inventory[new_name] = product_inventory.pop(old_name)
-                save_database()
+                sync_inventory()
                 bot.send_message(message.chat.id, f"✅ Successfully renamed **{old_name}** to **{new_name}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             else:
                 bot.send_message(message.chat.id, "❌ Category not found.")
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_rename_subcat_"):
@@ -973,12 +993,12 @@ def handle_all_messages(message):
                     bot.send_message(message.chat.id, f"⚠️ Sub-folder **{new_sub}** already exists!")
                 elif old_sub in product_inventory[parent_cat]["items"]:
                     product_inventory[parent_cat]["items"][new_sub] = product_inventory[parent_cat]["items"].pop(old_sub)
-                    save_database()
+                    sync_inventory()
                     bot.send_message(message.chat.id, f"✅ Successfully renamed sub-folder **{old_sub}** to **{new_sub}**!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 else:
                     bot.send_message(message.chat.id, "❌ Sub-folder not found.")
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id) == "waiting_for_accounts_input":
@@ -1001,19 +1021,20 @@ def handle_all_messages(message):
                         acc_info = line.strip()
                         target_dict["accounts"].append({"number": acc_info, "2fa": "Included in Details"})
                         added_count += 1
-                save_database()
+                sync_inventory()
                 bot.send_message(message.chat.id, f"✅ Successfully updated **{target_key}**!\n💰 Price: ${price_val:.2f}\n📦 Added Items: {added_count}", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             except Exception:
                 bot.send_message(message.chat.id, "❌ Format error! First line must be price (e.g., `2.50`) and following lines should be account details.")
             user_states.pop(user_id, None)
+            sync_state(user_id)
             temp_admin_data.pop(user_id, None)
             temp_admin_data.pop(f"parent_{user_id}", None)
-            save_database()
         return
 
     if user_states.get(user_id) == "waiting_for_broadcast_message":
         if is_admin(user_id):
             user_states.pop(user_id, None)
+            sync_state(user_id)
             success_count = 0
             fail_count = 0
             bot.send_message(message.chat.id, "⏳ Broadcasting message to all users, please wait...")
@@ -1025,7 +1046,6 @@ def handle_all_messages(message):
                     success_count += 1
                 except Exception:
                     fail_count += 1
-            save_database()
             bot.send_message(message.chat.id, f"✅ **Broadcast Completed!**\n\n👥 Successfully sent: `{success_count}` users\n❌ Failed (Blocked bot): `{fail_count}` users", parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
         return
 
@@ -1033,7 +1053,7 @@ def handle_all_messages(message):
         raw_query = message.text.strip() if message.text else ""
         query = raw_query.lower()
         user_states.pop(user_id, None)
-        save_database()
+        sync_state(user_id)
         markup = types.InlineKeyboardMarkup(row_width=1)
         found_any = False
         for country, data in product_inventory["Telegram Protocol"]["items"].items():
@@ -1073,12 +1093,12 @@ def handle_all_messages(message):
             if c_name not in product_inventory["Telegram Protocol"]["items"]:
                 temp_admin_data[user_id] = c_name
                 user_states[user_id] = "waiting_for_country_code"
-                save_database()
+                sync_state(user_id)
                 bot.send_message(message.chat.id, f"📱 Now enter country phone code for **{c_name}** (e.g., `+880`):", parse_mode="Markdown")
             else:
                 bot.send_message(message.chat.id, f"⚠️ Country **{c_name}** already exists.")
                 user_states.pop(user_id, None)
-                save_database()
+                sync_state(user_id)
         return
 
     if user_states.get(user_id) == "waiting_for_country_code":
@@ -1087,10 +1107,10 @@ def handle_all_messages(message):
             c_name = temp_admin_data.get(user_id)
             if c_name:
                 product_inventory["Telegram Protocol"]["items"][c_name] = {"code": c_code, "price": 1.00, "accounts": [], "zip_files": []}
-                save_database()
+                sync_inventory()
                 bot.send_message(message.chat.id, f"✅ Country **{c_name} ({c_code})** added successfully!", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
         return
 
     if user_states.get(user_id, "").startswith("waiting_for_custom_qty_"):
@@ -1107,7 +1127,7 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, t["invalid_qty_zero"])
                 return
             user_states.pop(user_id, None)
-            save_database()
+            sync_state(user_id)
             process_product_purchase(message.chat.id, user_id, qty_key, qty)
         except ValueError:
             bot.send_message(message.chat.id, t["invalid_qty_num"])
@@ -1121,8 +1141,9 @@ def handle_all_messages(message):
                 bot.send_message(message.chat.id, t["min_custom_amt"])
                 return
             user_amounts[user_id] = custom_amount
+            sync_amount(user_id)
             user_states[user_id] = "waiting_for_payment_method"
-            save_database()
+            sync_state(user_id)
             payment_text = f"💰 **Selected Amount:** ${custom_amount:.2f}\n\nPlease select your preferred payment method:" if lang_code == "en" else f"💰 **已选金额：** ${custom_amount:.2f}\n\n请选择您的首选付款方式："
             bot.send_message(message.chat.id, payment_text, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard(user_id))
         except ValueError:
@@ -1135,6 +1156,7 @@ def handle_all_messages(message):
         if proof_text in used_txids:
             bot.send_message(message.chat.id, t["txid_used"], parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
             user_states.pop(user_id, None)
+            sync_state(user_id)
             temp_admin_data.pop(f"order_info_{user_id}", None)
             return
         order_data = temp_admin_data.get(f"order_info_{user_id}", {})
@@ -1163,8 +1185,8 @@ def handle_all_messages(message):
                 pass
         bot.send_message(message.chat.id, t["proof_sent"], parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
         user_states.pop(user_id, None)
+        sync_state(user_id)
         temp_admin_data.pop(f"order_info_{user_id}", None)
-        save_database()
         return
 
     if user_states.get(user_id) == "waiting_for_zip_2fa":
@@ -1186,17 +1208,18 @@ def handle_all_messages(message):
                             "2fa": tfa_code,
                             "extracted_files": valid_files
                         })
-                        save_database()
+                        sync_inventory()
                         bot.send_message(message.chat.id, f"✅ Successfully added ZIP stock for **{country_name}**!\n📁 Total valid files: `{len(valid_files)}`\n🔐 Password / 2FA: `{tfa_code}`", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
                 except Exception as e:
                     bot.send_message(message.chat.id, f"❌ **Password Error!** The password you provided is incorrect or the ZIP file is corrupted.\nError details: `{str(e)}`\nPlease upload the ZIP file again and enter the correct password.", parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
             user_states.pop(user_id, None)
+            sync_state(user_id)
             temp_admin_data.pop(user_id, None)
             temp_admin_data.pop(f"zip_bytes_{user_id}", None)
         return
 
     text = message.text if message.text else ""
-    
+
     is_dashboard = text in [LANG["en"]["menu_dashboard"], LANG["zh"]["menu_dashboard"]]
     is_products = text in [LANG["en"]["menu_products"], LANG["zh"]["menu_products"]]
     is_account = text in [LANG["en"]["menu_account"], LANG["zh"]["menu_account"]]
@@ -1208,13 +1231,14 @@ def handle_all_messages(message):
     is_admin_menu = text in [LANG["en"]["menu_admin"], LANG["zh"]["menu_admin"]]
 
     if any([is_dashboard, is_products, is_account, is_deposit, is_history, is_support, is_lang, is_search, is_admin_menu]):
-        user_states.pop(user_id, None)
-        save_database()
+        if user_id in user_states:
+            user_states.pop(user_id, None)
+            sync_state(user_id)
 
     if is_admin_menu:
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_admin_password"
-            save_database()
+            sync_state(user_id)
             bot.send_message(message.chat.id, "🔐 Please enter admin password to access Admin Panel:")
         else:
             bot.send_message(message.chat.id, "❌ Access denied.")
@@ -1244,7 +1268,7 @@ def handle_all_messages(message):
         bot.send_message(message.chat.id, t["products"], parse_mode="Markdown", reply_markup=get_products_categories_keyboard(user_id))
     elif is_deposit:
         user_states[user_id] = "waiting_for_deposit"
-        save_database()
+        sync_state(user_id)
         bot.send_message(message.chat.id, t["deposit"], parse_mode="Markdown", reply_markup=get_select_amount_keyboard(user_id))
     elif is_history:
         bot.send_message(message.chat.id, t["history"], parse_mode="Markdown", reply_markup=get_history_menu_keyboard(user_id))
@@ -1257,10 +1281,9 @@ def handle_all_messages(message):
         account_text = t["account"].format(user_id=user.id, username=username, balance=balance_val, purchased_total=purchased_total)
         bot.send_message(message.chat.id, account_text, parse_mode="Markdown")
     elif is_lang:
-        # সরাসরি ভাষা পরিবর্তন (ইংরেজি <-> চায়না)
         new_lang = "zh" if lang_code == "en" else "en"
         user_languages[user_id] = new_lang
-        save_database()
+        sync_lang(user_id)
         new_t = LANG[new_lang]
         default_name = "用户" if new_lang == "zh" else "User"
         user_name = message.from_user.first_name or default_name
@@ -1273,7 +1296,7 @@ def handle_all_messages(message):
         )
     elif is_search:
         user_states[user_id] = "waiting_for_search_query"
-        save_database()
+        sync_state(user_id)
         bot.send_message(message.chat.id, t["search"], parse_mode="Markdown")
     elif is_support:
         support_msg = t["support"].format(support_user=support_admin_username)
@@ -1314,7 +1337,8 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
     if user_balance < total_price:
         bot.send_message(chat_id, f"{t['insufficient_balance']} ${total_price:.2f}\n{t['your_balance']} ${user_balance:.2f}\n{t['deposit_first']}", reply_markup=get_main_menu_keyboard(user_id))
         return
-    user_balances[user_id] = user_balance - total_price
+    user_balances[user_id] = round(user_balance - total_price, 2)
+    sync_balance(user_id)
     if is_protocol:
         disp_country = tr_name(item_key, lang_code)
         for _ in range(qty):
@@ -1340,7 +1364,6 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
-                save_database()
                 file_short_name = os.path.basename(target_file_name)
                 bot.send_document(
                     chat_id,
@@ -1358,10 +1381,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
-                save_database()
                 success_text = f"{t['purchase_success']}\n\n🌍 {t['country_lbl']}: {disp_country}\n📱 {t['tg_num_lbl']}: `{acc_num}`\n🔐 {t['tfa_code_lbl']}: `{acc_2fa}`\n💵 {t['paid_lbl']}: ${price_per_unit:.2f}\n\n{t['balance_text']} ${user_balances[user_id]:.2f}"
                 bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
-        save_database()
+        sync_purchases(user_id)
+        sync_inventory()
     elif is_sub:
         p_cat, s_item = parts
         disp_p = tr_name(p_cat, lang_code)
@@ -1375,10 +1398,10 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
-                save_database()
                 success_text = f"{t['purchase_success']}\n\n📦 {t['prod_lbl']}: {disp_p} -> {disp_s}\n🔑 {t['acc_details_lbl']}:\n`{num}`\n\n💵 {t['paid_lbl']}: ${price_per_unit:.2f}\n\n{t['balance_text']} ${user_balances[user_id]:.2f}"
                 bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
-        save_database()
+        sync_purchases(user_id)
+        sync_inventory()
     else:
         disp_item = tr_name(item_key, lang_code)
         for _ in range(qty):
@@ -1389,22 +1412,24 @@ def process_product_purchase(chat_id, user_id, item_key, qty):
                 if user_id not in user_purchases:
                     user_purchases[user_id] = []
                 user_purchases[user_id].append({"text": purchase_text, "timestamp": time.time()})
-                save_database()
                 success_text = f"{t['purchase_success']}\n\n📦 {t['prod_lbl']}: {disp_item}\n🔑 {t['acc_details_lbl']}:\n`{num}`\n\n💵 {t['paid_lbl']}: ${price_per_unit:.2f}\n\n{t['balance_text']} ${user_balances[user_id]:.2f}"
                 bot.send_message(chat_id, success_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
-        save_database()
+        sync_purchases(user_id)
+        sync_inventory()
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_inline_clicks(call):
     user_id = call.from_user.id
-    all_users.add(user_id)
+    if user_id not in all_users:
+        all_users.add(user_id)
+        sync_all_users()
     if user_id not in user_balances:
         user_balances[user_id] = 0.00
+        sync_balance(user_id)
     if user_id not in user_purchases:
         user_purchases[user_id] = []
     if user_id not in user_deposits:
         user_deposits[user_id] = []
-    save_database()
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
 
@@ -1423,7 +1448,7 @@ def handle_inline_clicks(call):
             )
             try:
                 bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_management_keyboard(user_id))
-            except:
+            except Exception:
                 bot.send_message(call.message.chat.id, text, parse_mode="Markdown", reply_markup=get_management_keyboard(user_id))
         return
 
@@ -1431,25 +1456,25 @@ def handle_inline_clicks(call):
         if is_admin(user_id):
             try:
                 page = int(call.data.replace("mgmt_users_", ""))
-            except:
+            except Exception:
                 page = 0
             bot.answer_callback_query(call.id, f"Page {page+1}")
             markup, total_pages, total = get_users_list_keyboard(page)
             text = f"👥 **All Users List**\n──────────────────────\nTotal Users: `{total}`\nClick a user to edit balance:"
             try:
                 bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-            except:
+            except Exception:
                 pass
         return
 
     if call.data == "mgmt_search_user":
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_mgmt_search"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Search User")
             try:
                 bot.edit_message_text("🔍 **Search User**\n\nSend User ID (e.g., `123456789`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
-            except:
+            except Exception:
                 pass
         return
 
@@ -1464,7 +1489,7 @@ def handle_inline_clicks(call):
             markup.add(types.InlineKeyboardButton("🔙 Back to Management", callback_data="admin_management"))
             try:
                 bot.edit_message_text("💰 **Top 10 Balance Users:**", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-            except:
+            except Exception:
                 pass
         return
 
@@ -1474,7 +1499,7 @@ def handle_inline_clicks(call):
             bot.answer_callback_query(call.id, f"User {target_uid}")
             try:
                 bot.edit_message_text(get_user_detail_text(target_uid), call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target_uid))
-            except:
+            except Exception:
                 bot.send_message(call.message.chat.id, get_user_detail_text(target_uid), parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target_uid))
         return
 
@@ -1483,7 +1508,7 @@ def handle_inline_clicks(call):
             rest = call.data.replace("mgmt_bal_", "")
             action, target_uid = rest.split("_")
             user_states[user_id] = f"waiting_for_mgmt_bal_{action}_{target_uid}"
-            save_database()
+            sync_state(user_id)
             old_bal = user_balances.get(int(target_uid), 0.0)
             label = {"add": "➕ Add Balance", "sub": "➖ Subtract Balance", "set": "✏️ Set Balance"}[action]
             bot.answer_callback_query(call.id, label)
@@ -1492,7 +1517,7 @@ def handle_inline_clicks(call):
                     f"{label}\n\n👤 User ID: `{target_uid}`\n💰 Current Balance: **${old_bal:.2f}**\n\n💵 Enter amount (e.g., `10`):",
                     call.message.chat.id, call.message.message_id, parse_mode="Markdown"
                 )
-            except:
+            except Exception:
                 pass
         return
 
@@ -1501,20 +1526,20 @@ def handle_inline_clicks(call):
             target_uid = int(call.data.replace("mgmt_bal_reset_", ""))
             old_bal = user_balances.get(target_uid, 0.0)
             user_balances[target_uid] = 0.0
-            save_database()
+            sync_balance(target_uid)
             bot.answer_callback_query(call.id, "Balance Reset to $0", show_alert=True)
             try:
                 bot.edit_message_text(
                     f"✅ **Balance Reset!**\n\n👤 User ID: `{target_uid}`\n💰 Old: `${old_bal:.2f}` → New: **$0.00**",
                     call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_user_detail_keyboard(target_uid)
                 )
-            except:
+            except Exception:
                 pass
             try:
                 target_lang = get_lang(target_uid)
                 notif = "💰 **管理员已将您的余额清零 ($0.00)。**" if target_lang == "zh" else "💰 **Your balance has been reset to $0.00 by Admin.**"
                 bot.send_message(target_uid, notif, parse_mode="Markdown")
-            except:
+            except Exception:
                 pass
         return
 
@@ -1528,7 +1553,7 @@ def handle_inline_clicks(call):
             markup.add(types.InlineKeyboardButton("🔙 Back", callback_data=f"mgmt_user_{target_uid}"))
             try:
                 bot.edit_message_text(f"📦 **Purchase History - {target_uid}**\n──────────────────────\n{txt}", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-            except:
+            except Exception:
                 pass
         return
 
@@ -1542,7 +1567,7 @@ def handle_inline_clicks(call):
             markup.add(types.InlineKeyboardButton("🔙 Back", callback_data=f"mgmt_user_{target_uid}"))
             try:
                 bot.edit_message_text(f"💰 **Deposit History - {target_uid}**\n──────────────────────\n{txt}", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
-            except:
+            except Exception:
                 pass
         return
 
@@ -1551,7 +1576,7 @@ def handle_inline_clicks(call):
         if remainder.startswith("other_"):
             item_key = remainder.replace("other_", "")
             user_states[user_id] = f"waiting_for_custom_qty_{item_key}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "输入数量" if lang_code == "zh" else "Enter quantity")
             try:
                 disp_key = " -> ".join([tr_name(x, lang_code) for x in item_key.split("___")])
@@ -1585,7 +1610,7 @@ def handle_inline_clicks(call):
     if call.data == "admin_change_support":
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_new_support_username"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Change Support Username")
             try:
                 bot.edit_message_text(f"📞 Current support username is: **{support_admin_username}**\n\nPlease send the new support username (e.g., `@newsupport`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1596,7 +1621,7 @@ def handle_inline_clicks(call):
     if call.data == "admin_add_category":
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_new_category_name"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Add Category")
             try:
                 bot.edit_message_text("➕ Enter the new product category name (e.g., `Netflix`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1714,7 +1739,7 @@ def handle_inline_clicks(call):
             temp_admin_data[user_id] = target_sub
             temp_admin_data[f"parent_{user_id}"] = parent_cat
             user_states[user_id] = "waiting_for_accounts_input"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, target_sub)
             format_instruction = f"📦 Adding stock/price for **{parent_cat} -> {target_sub}**\n\nSend message in this format:\nLine 1: Price (e.g., `2.50`)\nLine 2+: Account details (Email, Password, Recovery, 2FA etc.)"
             try:
@@ -1791,7 +1816,7 @@ def handle_inline_clicks(call):
         if is_admin(user_id):
             country_name = call.data.replace("admin_rename_country_", "")
             user_states[user_id] = f"waiting_for_rename_country_{country_name}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, f"Rename {country_name}")
             try:
                 bot.edit_message_text(f"✏️ Enter new name for country **{country_name}**:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1805,7 +1830,7 @@ def handle_inline_clicks(call):
             proto_items = product_inventory.get("Telegram Protocol", {}).get("items", {})
             if country_name in proto_items:
                 del proto_items[country_name]
-                save_database()
+                sync_inventory()
                 bot.answer_callback_query(call.id, f"Deleted {country_name}")
                 markup = types.InlineKeyboardMarkup(row_width=1)
                 for c in proto_items.keys():
@@ -1826,7 +1851,7 @@ def handle_inline_clicks(call):
         if is_admin(user_id):
             country_name = call.data.replace("admin_edit_protocol_price_", "")
             user_states[user_id] = f"waiting_for_protocol_price_{country_name}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, country_name)
             try:
                 bot.edit_message_text(f"💵 Enter new price for **Telegram Protocol ({country_name})** (e.g., `1.50`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1838,7 +1863,7 @@ def handle_inline_clicks(call):
         if is_admin(user_id):
             parent_cat = call.data.replace("admin_sub_add_", "")
             user_states[user_id] = f"waiting_for_subcat_name_{parent_cat}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Add Sub-Folder")
             try:
                 bot.edit_message_text(f"📁 Enter new sub-folder name for **{parent_cat}**:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1850,7 +1875,7 @@ def handle_inline_clicks(call):
         if is_admin(user_id):
             cat_name = call.data.replace("admin_rename_cat_", "")
             user_states[user_id] = f"waiting_for_rename_cat_{cat_name}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, f"Rename {cat_name}")
             try:
                 bot.edit_message_text(f"✏️ Enter new name for category **{cat_name}**:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1863,7 +1888,7 @@ def handle_inline_clicks(call):
             cat_name = call.data.replace("admin_delete_cat_", "")
             if cat_name in product_inventory:
                 del product_inventory[cat_name]
-                save_database()
+                sync_inventory()
                 bot.answer_callback_query(call.id, f"Deleted {cat_name}")
                 try:
                     bot.edit_message_text(f"✅ Category **{cat_name}** has been deleted successfully!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
@@ -1880,7 +1905,7 @@ def handle_inline_clicks(call):
             parent_cat = parts[0]
             sub_name = parts[1]
             user_states[user_id] = f"waiting_for_rename_subcat_{parent_cat}___{sub_name}"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, f"Rename {sub_name}")
             try:
                 bot.edit_message_text(f"✏️ Enter new name for sub-folder **{sub_name}** (under {parent_cat}):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1897,7 +1922,7 @@ def handle_inline_clicks(call):
             if parent_cat in product_inventory and "items" in product_inventory[parent_cat]:
                 if sub_name in product_inventory[parent_cat]["items"]:
                     del product_inventory[parent_cat]["items"][sub_name]
-                    save_database()
+                    sync_inventory()
                     bot.answer_callback_query(call.id, f"Deleted {sub_name}")
                     try:
                         bot.edit_message_text(f"✅ Sub-folder **{sub_name}** deleted successfully from **{parent_cat}**!", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_admin_panel_keyboard(user_id))
@@ -1920,10 +1945,11 @@ def handle_inline_clicks(call):
                 txid_val = parts[4] if len(parts) > 4 else ""
                 if txid_val:
                     used_txids.add(txid_val)
+                    sync_used_txids()
                 if target_user_id not in user_balances:
                     user_balances[target_user_id] = 0.00
-                user_balances[target_user_id] += amount
-                save_database()
+                user_balances[target_user_id] = round(user_balances[target_user_id] + amount, 2)
+                sync_balance(target_user_id)
                 bot.answer_callback_query(call.id, "Deposit Accepted!")
                 try:
                     bot.edit_message_text(f"✅ **Deposit Approved & Credited!**\nUser ID: `{target_user_id}`\nAmount: `${amount:.2f}`\nTxID: `{txid_val}`", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -1956,9 +1982,9 @@ def handle_inline_clicks(call):
         order_id = call.data.replace("send_order_id_", "")
         bot.answer_callback_query(call.id)
         user_states[user_id] = "waiting_for_payment_proof"
+        sync_state(user_id)
         order_info = temp_admin_data.get(f"order_temp_{user_id}", {"order_id": order_id, "method": "Deposit"})
         temp_admin_data[f"order_info_{user_id}"] = order_info
-        save_database()
         prompt_text = t["proof_prompt"]
         try:
             bot.send_message(call.message.chat.id, prompt_text, parse_mode="Markdown")
@@ -1977,15 +2003,16 @@ def handle_inline_clicks(call):
     elif call.data.startswith("amt_"):
         if call.data == "amt_other":
             user_states[user_id] = "waiting_for_custom_amount"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "输入自定义金额" if lang_code == "zh" else "Enter custom amount")
             bot.send_message(call.message.chat.id, t["deposit_select_amt"], parse_mode="Markdown")
         else:
             try:
                 selected_val = float(call.data.split("_")[1])
                 user_amounts[user_id] = selected_val
+                sync_amount(user_id)
                 user_states[user_id] = "waiting_for_payment_method"
-                save_database()
+                sync_state(user_id)
                 payment_text = f"💰 **Selected Amount:** ${selected_val:.2f}\n\nPlease select your preferred payment method:" if lang_code == "en" else f"💰 **已选金额：** ${selected_val:.2f}\n\n请选择您的首选付款方式："
                 bot.answer_callback_query(call.id, f"已选 ${selected_val:.2f}" if lang_code == "zh" else f"Selected ${selected_val:.2f}")
                 bot.edit_message_text(payment_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_payment_methods_keyboard(user_id))
@@ -2007,7 +2034,7 @@ def handle_inline_clicks(call):
         if user_id not in user_deposits:
             user_deposits[user_id] = []
         user_deposits[user_id].append({"text": deposit_text, "timestamp": time.time()})
-        save_database()
+        sync_deposits(user_id)
         if lang_code == "zh":
             binance_order_text = (
                 "[ 订单已创建 ]  币安内部转账 · 泰达币\n"
@@ -2107,7 +2134,7 @@ def handle_inline_clicks(call):
         if user_id not in user_deposits:
             user_deposits[user_id] = []
         user_deposits[user_id].append({"text": deposit_text, "timestamp": time.time()})
-        save_database()
+        sync_deposits(user_id)
         if lang_code == "zh":
             order_text = (
                 "[ 订单已创建 ]  " + currency_type + "\n"
@@ -2153,9 +2180,9 @@ def handle_inline_clicks(call):
             raw_p = p.get("text", "") if isinstance(p, dict) else str(p)
             formatted_purchases.append(tr_history_line(raw_p, lang_code))
         if lang_code == "zh":
-            hist_text = "📦 **购买历史记录（最近 12 小时）**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "暂无购买记录，或超过 12 小时的记录已自动清理。")
+            hist_text = "📦 **购买历史记录**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "暂无购买记录。")
         else:
-            hist_text = "📦 **PURCHASE HISTORY (Last 12 Hours)**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet or records older than 12 hours cleared.")
+            hist_text = "📦 **PURCHASE HISTORY**\n──────────────────────\n" + ("\n".join(formatted_purchases) if formatted_purchases else "No purchases yet.")
         try:
             bot.edit_message_text(hist_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -2170,9 +2197,9 @@ def handle_inline_clicks(call):
             raw_d = d.get("text", "") if isinstance(d, dict) else str(d)
             formatted_deposits.append(tr_history_line(raw_d, lang_code))
         if lang_code == "zh":
-            dep_text = "💰 **充值历史记录（最近 12 小时）**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "暂无充值记录，或超过 12 小时的记录已自动清理。")
+            dep_text = "💰 **充值历史记录**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "暂无充值记录。")
         else:
-            dep_text = "💰 **DEPOSIT HISTORY (Last 12 Hours)**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet or records older than 12 hours cleared.")
+            dep_text = "💰 **DEPOSIT HISTORY**\n──────────────────────\n" + ("\n".join(formatted_deposits) if formatted_deposits else "No deposit orders yet.")
         try:
             bot.edit_message_text(dep_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(t["back"], callback_data="back_to_history_menu")))
         except Exception:
@@ -2191,7 +2218,7 @@ def handle_inline_clicks(call):
     if call.data == "admin_broadcast_start":
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_broadcast_message"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Broadcast Mode")
             try:
                 bot.edit_message_text("📢 **Broadcast System**\n\nPlease send the message, photo, video or file that you want to send to all users:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -2202,7 +2229,7 @@ def handle_inline_clicks(call):
     if call.data == "admin_add_country":
         if is_admin(user_id):
             user_states[user_id] = "waiting_for_new_country"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, "Add Country")
             try:
                 bot.edit_message_text("🌍 Enter new country name for Telegram Protocol (e.g., Canada):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -2236,7 +2263,7 @@ def handle_inline_clicks(call):
             country_name = call.data.replace("select_zip_country_", "")
             temp_admin_data[user_id] = country_name
             user_states[user_id] = "waiting_for_zip_file"
-            save_database()
+            sync_state(user_id)
             bot.answer_callback_query(call.id, country_name)
             try:
                 bot.edit_message_text(f"📁 Please send the **.zip file** containing session/json/tdata for **{country_name}**:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
@@ -2255,7 +2282,7 @@ def handle_inline_clicks(call):
     elif call.data == "go_main_menu" or call.data == "dep_cancel":
         bot.answer_callback_query(call.id, "主菜单" if lang_code == "zh" else "Main Menu")
         user_states.pop(user_id, None)
-        save_database()
+        sync_state(user_id)
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception:
@@ -2274,17 +2301,22 @@ class SimpleHandler(BaseHTTPRequestHandler):
             print(f"Error processing update: {e}")
         self.send_response(200)
         self.end_headers()
+
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is alive via Webhook!")
+
     def do_HEAD(self):
         self.send_response(200)
         self.end_headers()
 
+    def log_message(self, format, *args):
+        return
+
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server = ThreadingHTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
 if __name__ == '__main__':
