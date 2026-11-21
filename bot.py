@@ -42,6 +42,14 @@ firebase_admin.initialize_app(cred, {
     'databaseURL': FIREBASE_DB_URL
 })
 
+DEFAULT_PAYMENT_SETTINGS = {
+    "min_deposit": 3.00,
+    "binance_pay_id": "1271852493",
+    "binance_name": "onwerTGselling",
+    "tron_address": "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV",
+    "bsc_address": "0x4388fd8ff1278b4d9ddfc770875a731379a061b6"
+}
+
 DEFAULT_DATABASE = {
     "user_amounts": {},
     "user_states": {},
@@ -52,6 +60,7 @@ DEFAULT_DATABASE = {
     "user_languages": {},
     "all_users": [],
     "support_admin": "@tianpeng7777",
+    "payment_settings": DEFAULT_PAYMENT_SETTINGS,
     "product_inventory": {
         "Telegram Protocol": {
             "type": "countries",
@@ -111,7 +120,7 @@ def sync_state(uid):
         save_path(f"/user_states/{uid_str}", None)
 
 def sync_amount(uid):
-    save_path(f"/user_amounts/{int(uid)}", user_amounts.get(int(uid), 3.0))
+    save_path(f"/user_amounts/{int(uid)}", user_amounts.get(int(uid), float(payment_settings.get("min_deposit", 3.0))))
 
 def sync_all_users():
     save_path("/all_users", [str(u) for u in sorted(all_users)])
@@ -122,6 +131,9 @@ def sync_used_txids():
 def sync_support_admin():
     save_path("/support_admin", support_admin_username)
 
+def sync_payment_settings():
+    save_path("/payment_settings", payment_settings)
+
 def sync_inventory():
     save_path("/product_inventory", product_inventory)
 
@@ -129,6 +141,17 @@ db_data = load_database()
 user_amounts = {int(k): v for k, v in (db_data.get("user_amounts") or {}).items()}
 user_states = {int(k): v for k, v in (db_data.get("user_states") or {}).items()}
 user_balances = {int(k): float(v) for k, v in (db_data.get("user_balances") or {}).items()}
+
+loaded_pay_settings = db_data.get("payment_settings")
+if isinstance(loaded_pay_settings, dict) and loaded_pay_settings:
+    payment_settings = DEFAULT_PAYMENT_SETTINGS.copy()
+    payment_settings.update(loaded_pay_settings)
+    try:
+        payment_settings["min_deposit"] = float(payment_settings.get("min_deposit", 3.0))
+    except Exception:
+        payment_settings["min_deposit"] = 3.0
+else:
+    payment_settings = DEFAULT_PAYMENT_SETTINGS.copy()
 
 raw_purchases = db_data.get("user_purchases") or {}
 user_purchases = {}
@@ -402,11 +425,11 @@ LANG = {
         "your_balance": "Your Balance:",
         "deposit_first": "Please deposit first.",
         "balance_text": "Remaining Balance:",
-        "deposit_select_amt": "Enter custom deposit amount (USDT, Min $3):",
-        "min_custom_amt": "❌ Minimum deposit amount is $3.00. Please enter again:",
+        "deposit_select_amt": "Enter custom deposit amount (USDT, Min ${min_dep:.2f}):",
+        "min_custom_amt": "❌ Minimum deposit amount is ${min_dep:.2f}. Please enter again:",
         "invalid_amt": "❌ Invalid amount. Please enter a valid number (e.g., 5 or 10):",
-        "min_binance": "❌ Minimum deposit for Binance UID is $3.00!",
-        "min_tron": "❌ Minimum deposit for this network is $3.00!",
+        "min_binance": "❌ Minimum deposit for Binance UID is ${min_dep:.2f}!",
+        "min_tron": "❌ Minimum deposit for this network is ${min_dep:.2f}!",
         "order_created": "[ ORDER CREATED ]",
         "send_exact": "Send exactly",
         "credit_by_admin": "Your balance will be credited by admin once verified.",
@@ -420,13 +443,13 @@ LANG = {
         "search_not_found": "❌ No products or countries found matching '{query}'.",
         "invalid_qty_zero": "❌ Please enter a valid quantity greater than 0:",
         "invalid_qty_num": "❌ Invalid number! Please enter a valid integer (e.g., 2, 5):",
-        "pay_binance_btn": "💛 Binance UID (Min $3)",
-        "pay_tron_btn": "💎 Tron Network (Min $3)",
-        "pay_bsc_btn": "🪙 Bsc Network (BEP20) (Min $3)",
-        "usdt_trc20_btn": "💵 USDT (TRC20) — Min $3",
-        "trx_btn": "💎 TRX (Tron) — Min $3",
-        "usdt_bep20_btn": "💵 USDT (BEP20) — Min $3",
-        "bnb_btn": "🪙 BNB (BEP20) — Min $3",
+        "pay_binance_btn": "💛 Binance UID (Min ${min_dep:g})",
+        "pay_tron_btn": "💎 Tron Network (Min ${min_dep:g})",
+        "pay_bsc_btn": "🪙 Bsc Network (BEP20) (Min ${min_dep:g})",
+        "usdt_trc20_btn": "💵 USDT (TRC20) — Min ${min_dep:g}",
+        "trx_btn": "💎 TRX (Tron) — Min ${min_dep:g}",
+        "usdt_bep20_btn": "💵 USDT (BEP20) — Min ${min_dep:g}",
+        "bnb_btn": "🪙 BNB (BEP20) — Min ${min_dep:g}",
         "no_sub_alert": "No sub-folders available yet!",
         "items_unit": "items",
         "country_lbl": "Country",
@@ -474,11 +497,11 @@ LANG = {
         "your_balance": "当前余额：",
         "deposit_first": "请先充值后再购买。",
         "balance_text": "剩余余额：",
-        "deposit_select_amt": "请输入自定义充值金额（USDT，最低 $3）：",
-        "min_custom_amt": "❌ 最低充值金额为 $3.00，请重新输入：",
+        "deposit_select_amt": "请输入自定义充值金额（USDT，最低 ${min_dep:.2f}）：",
+        "min_custom_amt": "❌ 最低充值金额为 ${min_dep:.2f}，请重新输入：",
         "invalid_amt": "❌ 金额格式无效，请输入有效数字（例如：5 或 10）：",
-        "min_binance": "❌ 币安内部转账最低充值金额为 $3.00！",
-        "min_tron": "❌ 该网络最低充值金额为 $3.00！",
+        "min_binance": "❌ 币安内部转账最低充值金额为 ${min_dep:.2f}！",
+        "min_tron": "❌ 该网络最低充值金额为 ${min_dep:.2f}！",
         "order_created": "[ 订单已创建 ]",
         "send_exact": "请准确发送",
         "credit_by_admin": "管理员核实后将为您入账余额。",
@@ -492,13 +515,13 @@ LANG = {
         "search_not_found": "❌ 未找到与 “{query}” 匹配的产品或国家。",
         "invalid_qty_zero": "❌ 请输入大于 0 的有效数量：",
         "invalid_qty_num": "❌ 数字无效！请输入有效的整数（例如：2、5）：",
-        "pay_binance_btn": "💛 币安内部转账 (最低 $3)",
-        "pay_tron_btn": "💎 波场网络 (最低 $3)",
-        "pay_bsc_btn": "🪙 币安智能链 (最低 $3)",
-        "usdt_trc20_btn": "💵 泰达币 (TRC20) — 最低 $3",
-        "trx_btn": "💎 波场币 (TRX) — 最低 $3",
-        "usdt_bep20_btn": "💵 泰达币 (BEP20) — 最低 $3",
-        "bnb_btn": "🪙 币安币 (BEP20) — 最低 $3",
+        "pay_binance_btn": "💛 币安内部转账 (最低 ${min_dep:g})",
+        "pay_tron_btn": "💎 波场网络 (最低 ${min_dep:g})",
+        "pay_bsc_btn": "🪙 币安智能链 (最低 ${min_dep:g})",
+        "usdt_trc20_btn": "💵 泰达币 (TRC20) — 最低 ${min_dep:g}",
+        "trx_btn": "💎 波场币 (TRX) — 最低 ${min_dep:g}",
+        "usdt_bep20_btn": "💵 泰达币 (BEP20) — 最低 ${min_dep:g}",
+        "bnb_btn": "🪙 币安币 (BEP20) — 最低 ${min_dep:g}",
         "no_sub_alert": "暂无可用子分类！",
         "items_unit": "个",
         "country_lbl": "国家",
@@ -513,6 +536,13 @@ LANG = {
         "dep_rejected_user": "❌ **您提交的 ${amount:.2f} 充值申请已被管理员拒绝。**"
     }
 }
+
+def get_min_deposit():
+    try:
+        val = float(payment_settings.get("min_deposit", 3.0))
+        return val if val > 0 else 3.0
+    except Exception:
+        return 3.0
 
 def get_lang(user_id):
     return user_languages.get(user_id, "en")
@@ -556,31 +586,34 @@ def get_select_amount_keyboard(user_id):
 
 def get_payment_methods_keyboard(user_id):
     t = LANG[get_lang(user_id)]
+    min_dep = get_min_deposit()
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton(t["pay_binance_btn"], callback_data="pay_binance"),
-        types.InlineKeyboardButton(t["pay_tron_btn"], callback_data="pay_tron_menu"),
-        types.InlineKeyboardButton(t["pay_bsc_btn"], callback_data="pay_bsc_menu"),
+        types.InlineKeyboardButton(t["pay_binance_btn"].format(min_dep=min_dep), callback_data="pay_binance"),
+        types.InlineKeyboardButton(t["pay_tron_btn"].format(min_dep=min_dep), callback_data="pay_tron_menu"),
+        types.InlineKeyboardButton(t["pay_bsc_btn"].format(min_dep=min_dep), callback_data="pay_bsc_menu"),
         types.InlineKeyboardButton(t["cancel"], callback_data="dep_cancel")
     )
     return markup
 
 def get_tron_subfolders_keyboard(user_id):
     t = LANG[get_lang(user_id)]
+    min_dep = get_min_deposit()
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton(t["usdt_trc20_btn"], callback_data="order_usdt_trc20"),
-        types.InlineKeyboardButton(t["trx_btn"], callback_data="order_trx"),
+        types.InlineKeyboardButton(t["usdt_trc20_btn"].format(min_dep=min_dep), callback_data="order_usdt_trc20"),
+        types.InlineKeyboardButton(t["trx_btn"].format(min_dep=min_dep), callback_data="order_trx"),
         types.InlineKeyboardButton(t["back"], callback_data="dep_confirm")
     )
     return markup
 
 def get_bsc_subfolders_keyboard(user_id):
     t = LANG[get_lang(user_id)]
+    min_dep = get_min_deposit()
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        types.InlineKeyboardButton(t["usdt_bep20_btn"], callback_data="order_usdt_bep20"),
-        types.InlineKeyboardButton(t["bnb_btn"], callback_data="order_bnb"),
+        types.InlineKeyboardButton(t["usdt_bep20_btn"].format(min_dep=min_dep), callback_data="order_usdt_bep20"),
+        types.InlineKeyboardButton(t["bnb_btn"].format(min_dep=min_dep), callback_data="order_bnb"),
         types.InlineKeyboardButton(t["back"], callback_data="dep_confirm")
     )
     return markup
@@ -672,11 +705,41 @@ def get_admin_panel_keyboard(user_id):
     markup.add(
         types.InlineKeyboardButton("📢 Broadcast Message", callback_data="admin_broadcast_start"),
         types.InlineKeyboardButton("👥 Management (Users & Balance)", callback_data="admin_management"),
+        types.InlineKeyboardButton("💳 Min Deposit & Wallet Settings", callback_data="admin_payment_settings"),
         types.InlineKeyboardButton("➕ Add New Product Category", callback_data="admin_add_category"),
         types.InlineKeyboardButton("📦 Add Stock & Price", callback_data="admin_add_accounts"),
         types.InlineKeyboardButton("✏️ Edit / Delete Categories", callback_data="admin_edit_delete_cat_menu"),
         types.InlineKeyboardButton("📞 Change Support Username", callback_data="admin_change_support"),
         types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu")
+    )
+    return markup
+
+def get_payment_settings_text():
+    min_dep = get_min_deposit()
+    b_id = payment_settings.get("binance_pay_id", "1271852493")
+    b_name = payment_settings.get("binance_name", "onwerTGselling")
+    tron_addr = payment_settings.get("tron_address", "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV")
+    bsc_addr = payment_settings.get("bsc_address", "0x4388fd8ff1278b4d9ddfc770875a731379a061b6")
+    return (
+        f"💳 **Minimum Deposit & Wallet Settings**\n"
+        f"──────────────────────\n"
+        f"💵 Minimum Deposit: **${min_dep:.2f}**\n"
+        f"💛 Binance Pay ID: `{b_id}` ({b_name})\n"
+        f"💎 Tron (TRC20 / TRX) Wallet:\n`{tron_addr}`\n"
+        f"🪙 BSC (BEP20 / BNB) Wallet:\n`{bsc_addr}`\n"
+        f"──────────────────────\n"
+        f"Select what you want to change:"
+    )
+
+def get_payment_settings_keyboard(user_id):
+    t = LANG[get_lang(user_id)]
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("💵 Change Minimum Deposit", callback_data="admin_set_min_deposit"),
+        types.InlineKeyboardButton("💛 Change Binance Pay ID", callback_data="admin_set_binance_id"),
+        types.InlineKeyboardButton("💎 Change Tron (TRC20/TRX) Wallet", callback_data="admin_set_tron_wallet"),
+        types.InlineKeyboardButton("🪙 Change BSC (BEP20/BNB) Wallet", callback_data="admin_set_bsc_wallet"),
+        types.InlineKeyboardButton(t["back"], callback_data="admin_back")
     )
     return markup
 
@@ -854,6 +917,81 @@ def handle_all_messages(message):
         user_deposits[user_id] = []
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
+
+    if user_states.get(user_id) == "waiting_for_min_deposit":
+        if is_admin(user_id):
+            try:
+                new_min = float(message.text.strip())
+                if new_min <= 0:
+                    bot.send_message(message.chat.id, "❌ Minimum deposit must be greater than 0! e.g.: `3` or `5`")
+                    return
+                payment_settings["min_deposit"] = round(new_min, 2)
+                sync_payment_settings()
+                user_states.pop(user_id, None)
+                sync_state(user_id)
+                bot.send_message(
+                    message.chat.id,
+                    f"✅ Minimum deposit updated to **${new_min:.2f}**!\n\n" + get_payment_settings_text(),
+                    parse_mode="Markdown",
+                    reply_markup=get_payment_settings_keyboard(user_id)
+                )
+            except Exception:
+                bot.send_message(message.chat.id, "❌ Invalid number! Please enter a valid amount (e.g., `3` or `5.00`):")
+        return
+
+    if user_states.get(user_id) == "waiting_for_binance_id":
+        if is_admin(user_id):
+            new_bid = message.text.strip() if message.text else ""
+            if not new_bid:
+                bot.send_message(message.chat.id, "❌ Please enter a valid Binance Pay ID!")
+                return
+            payment_settings["binance_pay_id"] = new_bid
+            sync_payment_settings()
+            user_states.pop(user_id, None)
+            sync_state(user_id)
+            bot.send_message(
+                message.chat.id,
+                f"✅ Binance Pay ID updated to `{new_bid}`!\n\n" + get_payment_settings_text(),
+                parse_mode="Markdown",
+                reply_markup=get_payment_settings_keyboard(user_id)
+            )
+        return
+
+    if user_states.get(user_id) == "waiting_for_tron_wallet":
+        if is_admin(user_id):
+            new_tron = message.text.strip() if message.text else ""
+            if not new_tron:
+                bot.send_message(message.chat.id, "❌ Please enter a valid Tron (TRC20/TRX) wallet address!")
+                return
+            payment_settings["tron_address"] = new_tron
+            sync_payment_settings()
+            user_states.pop(user_id, None)
+            sync_state(user_id)
+            bot.send_message(
+                message.chat.id,
+                f"✅ Tron wallet address updated to `{new_tron}`!\n\n" + get_payment_settings_text(),
+                parse_mode="Markdown",
+                reply_markup=get_payment_settings_keyboard(user_id)
+            )
+        return
+
+    if user_states.get(user_id) == "waiting_for_bsc_wallet":
+        if is_admin(user_id):
+            new_bsc = message.text.strip() if message.text else ""
+            if not new_bsc:
+                bot.send_message(message.chat.id, "❌ Please enter a valid BSC (BEP20/BNB) wallet address!")
+                return
+            payment_settings["bsc_address"] = new_bsc
+            sync_payment_settings()
+            user_states.pop(user_id, None)
+            sync_state(user_id)
+            bot.send_message(
+                message.chat.id,
+                f"✅ BSC wallet address updated to `{new_bsc}`!\n\n" + get_payment_settings_text(),
+                parse_mode="Markdown",
+                reply_markup=get_payment_settings_keyboard(user_id)
+            )
+        return
 
     if user_states.get(user_id) == "waiting_for_mgmt_search":
         if is_admin(user_id):
@@ -1143,9 +1281,9 @@ def handle_all_messages(message):
     if user_states.get(user_id) == "waiting_for_custom_amount":
         try:
             custom_amount = float(message.text.strip())
-            min_limit = 3.00
+            min_limit = get_min_deposit()
             if custom_amount < min_limit:
-                bot.send_message(message.chat.id, t["min_custom_amt"])
+                bot.send_message(message.chat.id, t["min_custom_amt"].format(min_dep=min_limit))
                 return
             user_amounts[user_id] = custom_amount
             sync_amount(user_id)
@@ -1169,7 +1307,7 @@ def handle_all_messages(message):
         order_data = temp_admin_data.get(f"order_info_{user_id}", {})
         order_id = order_data.get("order_id", "N/A")
         method_name = order_data.get("method", "General Deposit")
-        current_amount = user_amounts.get(user_id, 3.00)
+        current_amount = user_amounts.get(user_id, get_min_deposit())
         pending_key = f"pending_dep_{user_id}_{int(time.time() * 1000)}"
         temp_admin_data[pending_key] = {
             "user_id": user_id,
@@ -1315,7 +1453,6 @@ def handle_all_messages(message):
         support_msg = t["support"].format(support_user=support_admin_username)
         bot.send_message(message.chat.id, support_msg, parse_mode="Markdown")
     elif message.content_type == 'text' and text.strip() and not text.strip().startswith("/"):
-        # ভিডিওর মতো সরাসরি মেসেজে কোড (+1, +880) বা দেশের/প্রোডাক্টের নাম লিখলে সার্চ রেজাল্ট দেখাবে
         perform_product_search(message.chat.id, user_id, text.strip(), lang_code, t, None)
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
@@ -1448,6 +1585,61 @@ def handle_inline_clicks(call):
         user_deposits[user_id] = []
     lang_code = get_lang(user_id)
     t = LANG[lang_code]
+
+    if call.data == "admin_payment_settings":
+        if is_admin(user_id):
+            user_states.pop(user_id, None)
+            sync_state(user_id)
+            bot.answer_callback_query(call.id, "Deposit & Wallet Settings")
+            try:
+                bot.edit_message_text(get_payment_settings_text(), call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_payment_settings_keyboard(user_id))
+            except Exception:
+                bot.send_message(call.message.chat.id, get_payment_settings_text(), parse_mode="Markdown", reply_markup=get_payment_settings_keyboard(user_id))
+        return
+
+    if call.data == "admin_set_min_deposit":
+        if is_admin(user_id):
+            user_states[user_id] = "waiting_for_min_deposit"
+            sync_state(user_id)
+            bot.answer_callback_query(call.id, "Set Min Deposit")
+            try:
+                bot.edit_message_text(f"💵 Current Minimum Deposit: **${get_min_deposit():.2f}**\n\nEnter new minimum deposit amount (e.g., `3` or `5`):", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
+
+    if call.data == "admin_set_binance_id":
+        if is_admin(user_id):
+            user_states[user_id] = "waiting_for_binance_id"
+            sync_state(user_id)
+            bot.answer_callback_query(call.id, "Set Binance ID")
+            try:
+                bot.edit_message_text(f"💛 Current Binance Pay ID: `{payment_settings.get('binance_pay_id', '1271852493')}`\n\nEnter new Binance Pay ID:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
+
+    if call.data == "admin_set_tron_wallet":
+        if is_admin(user_id):
+            user_states[user_id] = "waiting_for_tron_wallet"
+            sync_state(user_id)
+            bot.answer_callback_query(call.id, "Set Tron Wallet")
+            try:
+                bot.edit_message_text(f"💎 Current Tron (TRC20/TRX) Wallet:\n`{payment_settings.get('tron_address', '')}`\n\nEnter new Tron wallet address:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
+
+    if call.data == "admin_set_bsc_wallet":
+        if is_admin(user_id):
+            user_states[user_id] = "waiting_for_bsc_wallet"
+            sync_state(user_id)
+            bot.answer_callback_query(call.id, "Set BSC Wallet")
+            try:
+                bot.edit_message_text(f"🪙 Current BSC (BEP20/BNB) Wallet:\n`{payment_settings.get('bsc_address', '')}`\n\nEnter new BSC wallet address:", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
 
     if call.data == "admin_management":
         if is_admin(user_id):
@@ -2067,14 +2259,18 @@ def handle_inline_clicks(call):
         return
 
     elif call.data.startswith("amt_"):
+        min_dep = get_min_deposit()
         if call.data == "amt_other":
             user_states[user_id] = "waiting_for_custom_amount"
             sync_state(user_id)
             bot.answer_callback_query(call.id, "输入自定义金额" if lang_code == "zh" else "Enter custom amount")
-            bot.send_message(call.message.chat.id, t["deposit_select_amt"], parse_mode="Markdown")
+            bot.send_message(call.message.chat.id, t["deposit_select_amt"].format(min_dep=min_dep), parse_mode="Markdown")
         else:
             try:
                 selected_val = float(call.data.split("_")[1])
+                if selected_val < min_dep:
+                    bot.answer_callback_query(call.id, t["min_custom_amt"].format(min_dep=min_dep), show_alert=True)
+                    return
                 user_amounts[user_id] = selected_val
                 sync_amount(user_id)
                 user_states[user_id] = "waiting_for_payment_method"
@@ -2087,14 +2283,17 @@ def handle_inline_clicks(call):
         return
 
     elif call.data == "pay_binance":
-        current_amount = user_amounts.get(user_id, 3.00)
-        if current_amount < 3.00:
-            bot.answer_callback_query(call.id, t["min_binance"], show_alert=True)
+        min_dep = get_min_deposit()
+        current_amount = user_amounts.get(user_id, min_dep)
+        if current_amount < min_dep:
+            bot.answer_callback_query(call.id, t["min_binance"].format(min_dep=min_dep), show_alert=True)
             return
         calculated_binance = current_amount * (10.082 / 10.0)
         send_val_str = f"{calculated_binance:.3f} USDT"
         order_id = f"ORD-B{random.randint(10000000, 99999999):X}"
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        pay_id = payment_settings.get("binance_pay_id", "1271852493")
+        pay_name = payment_settings.get("binance_name", "onwerTGselling")
         temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": "Binance UID · USDT"}
         deposit_text = f"订单: `{order_id}` | 金额: `${current_amount:.2f}` (币安内部转账) | 时间: {current_time}" if lang_code == "zh" else f"Order: `{order_id}` | Amt: `${current_amount:.2f}` (Binance UID) | Time: {current_time} UTC"
         if user_id not in user_deposits:
@@ -2109,8 +2308,8 @@ def handle_inline_clicks(call):
                 f"  到账金额  ·  ${current_amount:.2f}\n"
                 f"  订单编号  ·  `{order_id}`\n"
                 "  网络类型  ·  币安内部转账\n"
-                f"  收款编号  ·  `1271852493`\n"
-                "  账户名称  ·  onwerTGselling\n"
+                f"  收款编号  ·  `{pay_id}`\n"
+                f"  账户名称  ·  {pay_name}\n"
                 f"  创建时间  ·  {current_time}\n"
                 "──────────────────────\n"
                 f"请准确发送 `{send_val_str}`（包含所有小数位）。多出的小数位仅用于识别您的付款，实际到账将为您入账 ${current_amount:.2f}。\n"
@@ -2124,8 +2323,8 @@ def handle_inline_clicks(call):
                 f"  Credit   ·  ${current_amount:.2f}\n"
                 f"  Order    ·  `{order_id}`\n"
                 "  Network  ·  Binance UID\n"
-                f"  Pay ID   ·  `1271852493`\n"
-                "  Name     ·  onwerTGselling\n"
+                f"  Pay ID   ·  `{pay_id}`\n"
+                f"  Name     ·  {pay_name}\n"
                 f"  Expires  ·  {current_time} UTC\n"
                 "──────────────────────\n"
                 f"Send exactly `{send_val_str}`, including all decimals. The extra decimals only identify your payment; ${current_amount:.2f} is credited.\n"
@@ -2139,36 +2338,41 @@ def handle_inline_clicks(call):
         return
 
     elif call.data == "pay_tron_menu":
+        min_dep = get_min_deposit()
         bot.answer_callback_query(call.id, "已选择波场网络" if lang_code == "zh" else "Tron Network selected")
         try:
-            tron_menu_text = f"💎 **波场网络** (最低充值：$3)\n\n已选金额：${user_amounts.get(user_id, 3.00):.2f}\n\n请选择代币类型：" if lang_code == "zh" else f"💎 **Tron Network** (Min Deposit: $3)\n\nSelected Amount: ${user_amounts.get(user_id, 3.00):.2f}\n\nPlease select token/coin type:"
+            tron_menu_text = f"💎 **波场网络** (最低充值：${min_dep:g})\n\n已选金额：${user_amounts.get(user_id, min_dep):.2f}\n\n请选择代币类型：" if lang_code == "zh" else f"💎 **Tron Network** (Min Deposit: ${min_dep:g})\n\nSelected Amount: ${user_amounts.get(user_id, min_dep):.2f}\n\nPlease select token/coin type:"
             bot.edit_message_text(tron_menu_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_tron_subfolders_keyboard(user_id))
         except Exception:
             pass
         return
 
     elif call.data == "pay_bsc_menu":
+        min_dep = get_min_deposit()
         bot.answer_callback_query(call.id, "已选择币安智能链" if lang_code == "zh" else "Bsc Network selected")
         try:
-            bsc_menu_text = f"🪙 **币安智能链** (最低充值：$3)\n\n已选金额：${user_amounts.get(user_id, 3.00):.2f}\n\n请选择代币类型：" if lang_code == "zh" else f"🪙 **Bsc Network (BEP20)** (Min Deposit: $3)\n\nSelected Amount: ${user_amounts.get(user_id, 3.00):.2f}\n\nPlease select token/coin type:"
+            bsc_menu_text = f"🪙 **币安智能链** (最低充值：${min_dep:g})\n\n已选金额：${user_amounts.get(user_id, min_dep):.2f}\n\n请选择代币类型：" if lang_code == "zh" else f"🪙 **Bsc Network (BEP20)** (Min Deposit: ${min_dep:g})\n\nSelected Amount: ${user_amounts.get(user_id, min_dep):.2f}\n\nPlease select token/coin type:"
             bot.edit_message_text(bsc_menu_text, call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=get_bsc_subfolders_keyboard(user_id))
         except Exception:
             pass
         return
 
     elif call.data in ["order_usdt_trc20", "order_trx", "order_usdt_bep20", "order_bnb"]:
-        current_amount = user_amounts.get(user_id, 3.00)
-        if current_amount < 3.0:
-            bot.answer_callback_query(call.id, t["min_tron"], show_alert=True)
+        min_dep = get_min_deposit()
+        current_amount = user_amounts.get(user_id, min_dep)
+        if current_amount < min_dep:
+            bot.answer_callback_query(call.id, t["min_tron"].format(min_dep=min_dep), show_alert=True)
             return
         order_id = f"ORD-{random.randint(100000, 999999)}"
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        tron_addr = payment_settings.get("tron_address", "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV")
+        bsc_addr = payment_settings.get("bsc_address", "0x4388fd8ff1278b4d9ddfc770875a731379a061b6")
         if call.data == "order_usdt_trc20":
             calculated_val = current_amount * (10.016 / 10.0)
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "泰达币 · TRC20" if lang_code == "zh" else "USDT · TRC20"
-            wallet_address = "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV"
+            wallet_address = tron_addr
             network_name = "波场网络 (TRC20)" if lang_code == "zh" else "Tron(Trc20)"
             net_code = "tron"
         elif call.data == "order_trx":
@@ -2176,7 +2380,7 @@ def handle_inline_clicks(call):
             send_val = f"{calculated_trx:.3f} TRX"
             credit_val = f"${current_amount:.2f}"
             currency_type = "波场币 · TRON" if lang_code == "zh" else "TRX · TRON"
-            wallet_address = "TMDf93NV9zM5sAS9mXc5FWmRC5qLbwM4EV"
+            wallet_address = tron_addr
             network_name = "波场主网" if lang_code == "zh" else "TRON"
             net_code = "tron"
         elif call.data == "order_usdt_bep20":
@@ -2184,7 +2388,7 @@ def handle_inline_clicks(call):
             send_val = f"{calculated_val:.3f} USDT"
             credit_val = f"${current_amount:.2f}"
             currency_type = "泰达币 · BEP20" if lang_code == "zh" else "USDT · BEP20"
-            wallet_address = "0x4388fd8ff1278b4d9ddfc770875a731379a061b6"
+            wallet_address = bsc_addr
             network_name = "币安智能链 (BEP20)" if lang_code == "zh" else "BNB Smart Chain (BEP20)"
             net_code = "bsc"
         else:
@@ -2192,7 +2396,7 @@ def handle_inline_clicks(call):
             send_val = f"{calculated_bnb:.6f} BNB"
             credit_val = f"${current_amount:.2f}"
             currency_type = "币安币 · BSC" if lang_code == "zh" else "BNB · BSC"
-            wallet_address = "0x4388fd8ff1278b4d9ddfc770875a731379a061b6"
+            wallet_address = bsc_addr
             network_name = "币安智能链 (BEP20)" if lang_code == "zh" else "BNB Smart Chain (BEP20)"
             net_code = "bsc"
         temp_admin_data[f"order_temp_{user_id}"] = {"order_id": order_id, "method": currency_type}
