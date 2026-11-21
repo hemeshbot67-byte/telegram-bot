@@ -748,6 +748,44 @@ def get_user_detail_text(target_uid):
     )
     return text
 
+def perform_product_search(chat_id, user_id, raw_query, lang_code, t, not_found_reply_markup):
+    query = raw_query.lower()
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    found_any = False
+    for country, data in product_inventory.get("Telegram Protocol", {}).get("items", {}).items():
+        zh_country = tr_name(country, "zh").lower()
+        code_str = str(data.get("code", "")).lower()
+        code_no_plus = code_str.lstrip("+")
+        q_no_plus = query.lstrip("+")
+        matched_code = (query in code_str) or (bool(q_no_plus) and q_no_plus == code_no_plus)
+        if query in country.lower() or matched_code or (zh_country and query in zh_country):
+            zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
+            stock_count = len(data.get("accounts", [])) + zip_stock_count
+            price = data.get("price", 1.00)
+            disp_country = tr_name(country, lang_code)
+            markup.add(types.InlineKeyboardButton(f"🌐 {disp_country} ({data.get('code', '')}) — {t['price']}: ${price:.2f} | {t['stock']}: {stock_count}", callback_data=f"select_country_{country}"))
+            found_any = True
+    for p_name, p_data in product_inventory.items():
+        zh_p_name = tr_name(p_name, "zh").lower()
+        if p_name != "Telegram Protocol" and (query in p_name.lower() or (zh_p_name and query in zh_p_name)):
+            disp_pname = tr_name(p_name, lang_code)
+            if p_data.get("type") == "sub_categories" or "items" in p_data:
+                for sub_name in p_data.get("items", {}).keys():
+                    disp_sub = tr_name(sub_name, lang_code)
+                    markup.add(types.InlineKeyboardButton(f"📂 {disp_pname} -> {disp_sub}", callback_data=f"prod_sub_buy_{p_name}_{sub_name}"))
+                    found_any = True
+            else:
+                stock_count = len(p_data.get("accounts", []))
+                price = p_data.get("price", 1.00)
+                cb = "prod_telegram_prem_support" if p_name == "Telegram Premium" else f"prod_custom_{p_name}"
+                markup.add(types.InlineKeyboardButton(f"📦 {disp_pname} — {t['price']}: ${price:.2f} | {t['stock']}: {stock_count}", callback_data=cb))
+                found_any = True
+    if found_any:
+        markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
+        bot.send_message(chat_id, t["search_results"].format(query=raw_query), parse_mode="Markdown", reply_markup=markup)
+    else:
+        bot.send_message(chat_id, t["search_not_found"].format(query=raw_query), parse_mode="Markdown", reply_markup=not_found_reply_markup)
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
@@ -1051,40 +1089,9 @@ def handle_all_messages(message):
 
     if user_states.get(user_id) == "waiting_for_search_query":
         raw_query = message.text.strip() if message.text else ""
-        query = raw_query.lower()
         user_states.pop(user_id, None)
         sync_state(user_id)
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        found_any = False
-        for country, data in product_inventory["Telegram Protocol"]["items"].items():
-            zh_country = tr_name(country, "zh").lower()
-            if query in country.lower() or query in data.get("code", "").lower() or (zh_country and query in zh_country):
-                zip_stock_count = sum(len(zf.get("extracted_files", [])) for zf in data.get("zip_files", []))
-                stock_count = len(data.get("accounts", [])) + zip_stock_count
-                price = data.get("price", 1.00)
-                disp_country = tr_name(country, lang_code)
-                markup.add(types.InlineKeyboardButton(f"🌐 {disp_country} ({data.get('code', '')}) — {t['price']}: ${price:.2f} | {t['stock']}: {stock_count}", callback_data=f"select_country_{country}"))
-                found_any = True
-        for p_name, p_data in product_inventory.items():
-            zh_p_name = tr_name(p_name, "zh").lower()
-            if p_name != "Telegram Protocol" and (query in p_name.lower() or (zh_p_name and query in zh_p_name)):
-                disp_pname = tr_name(p_name, lang_code)
-                if p_data.get("type") == "sub_categories" or "items" in p_data:
-                    for sub_name in p_data.get("items", {}).keys():
-                        disp_sub = tr_name(sub_name, lang_code)
-                        markup.add(types.InlineKeyboardButton(f"📂 {disp_pname} -> {disp_sub}", callback_data=f"prod_sub_buy_{p_name}_{sub_name}"))
-                        found_any = True
-                else:
-                    stock_count = len(p_data.get("accounts", []))
-                    price = p_data.get("price", 1.00)
-                    cb = "prod_telegram_prem_support" if p_name == "Telegram Premium" else f"prod_custom_{p_name}"
-                    markup.add(types.InlineKeyboardButton(f"📦 {disp_pname} — {t['price']}: ${price:.2f} | {t['stock']}: {stock_count}", callback_data=cb))
-                    found_any = True
-        if found_any:
-            markup.add(types.InlineKeyboardButton(t["main_menu"], callback_data="go_main_menu"))
-            bot.send_message(message.chat.id, t["search_results"].format(query=raw_query), parse_mode="Markdown", reply_markup=markup)
-        else:
-            bot.send_message(message.chat.id, t["search_not_found"].format(query=raw_query), parse_mode="Markdown", reply_markup=get_main_menu_keyboard(user_id))
+        perform_product_search(message.chat.id, user_id, raw_query, lang_code, t, get_main_menu_keyboard(user_id))
         return
 
     if user_states.get(user_id) == "waiting_for_new_country":
@@ -1163,6 +1170,12 @@ def handle_all_messages(message):
         order_id = order_data.get("order_id", "N/A")
         method_name = order_data.get("method", "General Deposit")
         current_amount = user_amounts.get(user_id, 3.00)
+        pending_key = f"pending_dep_{user_id}_{int(time.time() * 1000)}"
+        temp_admin_data[pending_key] = {
+            "user_id": user_id,
+            "amount": current_amount,
+            "txid": proof_text
+        }
         admin_alert = (
             f"🔔 **New Deposit Verification Request!**\n\n"
             f"👤 User ID: `{user_id}`\n"
@@ -1173,8 +1186,8 @@ def handle_all_messages(message):
         )
         admin_markup = types.InlineKeyboardMarkup(row_width=2)
         admin_markup.add(
-            types.InlineKeyboardButton("✅ Accept Deposit", callback_data=f"dep_accept_{user_id}_{current_amount}_{proof_text}"),
-            types.InlineKeyboardButton("❌ Reject Deposit", callback_data=f"dep_reject_{user_id}_{current_amount}")
+            types.InlineKeyboardButton("✅ Accept Deposit", callback_data=f"dep_acc_{pending_key}"),
+            types.InlineKeyboardButton("❌ Reject Deposit", callback_data=f"dep_rej_{pending_key}")
         )
         for adm in ADMIN_IDS:
             try:
@@ -1301,6 +1314,9 @@ def handle_all_messages(message):
     elif is_support:
         support_msg = t["support"].format(support_user=support_admin_username)
         bot.send_message(message.chat.id, support_msg, parse_mode="Markdown")
+    elif message.content_type == 'text' and text.strip() and not text.strip().startswith("/"):
+        # ভিডিওর মতো সরাসরি মেসেজে কোড (+1, +880) বা দেশের/প্রোডাক্টের নাম লিখলে সার্চ রেজাল্ট দেখাবে
+        perform_product_search(message.chat.id, user_id, text.strip(), lang_code, t, None)
 
 def process_product_purchase(chat_id, user_id, item_key, qty):
     lang_code = get_lang(user_id)
@@ -1934,6 +1950,56 @@ def handle_inline_clicks(call):
 
     elif call.data == "noop":
         bot.answer_callback_query(call.id)
+        return
+
+    elif call.data.startswith("dep_acc_"):
+        if is_admin(user_id):
+            try:
+                pending_key = call.data.replace("dep_acc_", "")
+                info = temp_admin_data.pop(pending_key, None)
+                if not info:
+                    bot.answer_callback_query(call.id, "Request already handled or expired", show_alert=True)
+                    return
+                target_user_id = int(info["user_id"])
+                amount = float(info["amount"])
+                txid_val = str(info.get("txid", ""))
+                if txid_val:
+                    used_txids.add(txid_val)
+                    sync_used_txids()
+                if target_user_id not in user_balances:
+                    user_balances[target_user_id] = 0.00
+                user_balances[target_user_id] = round(user_balances[target_user_id] + amount, 2)
+                sync_balance(target_user_id)
+                bot.answer_callback_query(call.id, "Deposit Accepted!")
+                try:
+                    bot.edit_message_text(f"✅ **Deposit Approved & Credited!**\nUser ID: `{target_user_id}`\nAmount: `${amount:.2f}`\nTxID: `{txid_val}`", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+                except Exception:
+                    pass
+                target_t = LANG[get_lang(target_user_id)]
+                bot.send_message(target_user_id, target_t["dep_approved_user"].format(amount=amount), parse_mode="Markdown")
+            except Exception:
+                bot.answer_callback_query(call.id, "Error processing approval", show_alert=True)
+        return
+
+    elif call.data.startswith("dep_rej_"):
+        if is_admin(user_id):
+            try:
+                pending_key = call.data.replace("dep_rej_", "")
+                info = temp_admin_data.pop(pending_key, None)
+                if not info:
+                    bot.answer_callback_query(call.id, "Request already handled or expired", show_alert=True)
+                    return
+                target_user_id = int(info["user_id"])
+                amount = float(info["amount"])
+                bot.answer_callback_query(call.id, "Deposit Rejected!")
+                try:
+                    bot.edit_message_text(f"❌ **Deposit Rejected!**\nUser ID: `{target_user_id}`\nAmount: `${amount:.2f}`", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+                except Exception:
+                    pass
+                target_t = LANG[get_lang(target_user_id)]
+                bot.send_message(target_user_id, target_t["dep_rejected_user"].format(amount=amount), parse_mode="Markdown")
+            except Exception:
+                bot.answer_callback_query(call.id, "Error processing rejection", show_alert=True)
         return
 
     elif call.data.startswith("dep_accept_"):
