@@ -438,7 +438,7 @@ def background_cleanup_job():
 
 LANG = {
     "en": {
-        "welcome": "Welcome, {user_name}.\n\n────────────────────────\n◆ **OUR BUSINESS** ◆\nAll kinds of daily needs, digital and physical products — wholesale / retail!\n\n‣ **First time buying from us?** Please purchase a small test batch before ordering in bulk, to avoid unnecessary disputes. Thank you for your cooperation!\n\n‣ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n‣ Use the menu below to get started.",
+        "welcome": "✨ **Welcome, {user_name}.** ✨\n────────────────────────\n💎 **OUR BUSINESS** 💎\n\nAll kinds of daily needs, digital & physical products — **Wholesale & Retail!**\n────────────────────────\n\n🔹 **First time buying from us?** Please purchase a small test batch before ordering in bulk to avoid unnecessary disputes. Thank you for your cooperation!\n\n⚠️ **Disclaimer:** All products are verified for quality and testing purposes only, not for any illegal activity. Please comply with your local laws and regulations.\n────────────────────────\n👇 **Use the menu below to get started.**",
         "dashboard": "📊 **Dashboard & Price List**\n\nHere is the current inventory and price list of all products:",
         "products": "📁 **Select a product category:**",
         "account": "◆ **ACCOUNT**\n────────────────────────\nUser ID  ·  `{user_id}`\nUsername  ·  {username}\nBalance  ·  ${balance:.2f}\nPurchased  ·  {purchased_total}",
@@ -510,7 +510,7 @@ LANG = {
         "dep_rejected_user": "❌ **Your deposit request of ${amount:.2f} has been rejected by admin.**"
     },
     "zh": {
-        "welcome": "欢迎，{user_name}。\n\n────────────────────────\n◆ **我们的业务** ◆\n各类日常需求、数字及实物产品——批发/零售！\n\n‣ **首次购买？** 批量订购前请先购买小额测试批次，以避免不必要的纠纷。感谢您的配合！\n\n‣ **免责声明：** 所有产品仅用于质量及测试验证，严禁用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n‣ 请使用下方菜单开始操作。",
+        "welcome": "✨ **欢迎，{user_name}。** ✨\n────────────────────────\n💎 **我们的业务** 💎\n\n各类日常需求、数字及实物产品——**批发/零售！**\n────────────────────────\n\n🔹 **首次购买？** 批量订购前请先购买小额测试批次，以避免不必要的纠纷。感谢您的配合！\n\n⚠️ **免责声明：** 所有产品仅用于质量及测试验证，严禁用于任何非法活动。请遵守您当地的法律法规。\n────────────────────────\n👇 **请使用下方菜单开始操作。**",
         "dashboard": "📊 **仪表盘与价格表**\n\n以下是所有产品的当前库存和价格表：",
         "products": "📁 **请选择产品类别：**",
         "account": "◆ **账户信息**\n────────────────────────\n用户编号  ·  `{user_id}`\n用户名    ·  {username}\n账户余额  ·  ${balance:.2f}\n已购数量  ·  {purchased_total}",
