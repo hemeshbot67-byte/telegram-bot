@@ -108,12 +108,21 @@ def load_database():
 
 def _async_save(path, data):
     try:
-        db.reference(path).set(data)
+        if data is None:
+            db.reference(path).delete()
+        else:
+            db.reference(path).set(data)
     except Exception as e:
         print(f"Error saving to Firebase ({path}): {e}")
 
+def _async_delete(path):
+    try:
+        db.reference(path).delete()
+    except Exception as e:
+        print(f"Error deleting from Firebase ({path}): {e}")
+
 def save_path(path, data):
-    """নির্দিষ্ট পাথে ডেটা সেভ করে, অন্য কোনো ডাটা মুছে ফেলে না।"""
+    """নির্দিষ্ট পাথে ডেটা সেভ বা ডিলিট করে, অন্য কোনো ডাটা মুছে ফেলে না।"""
     threading.Thread(target=_async_save, args=(path, data), daemon=True).start()
 
 def get_global_min_deposit():
@@ -151,10 +160,10 @@ def sync_lang(uid):
 
 def sync_state(uid):
     uid_str = str(int(uid))
-    if int(uid) in user_states:
+    if int(uid) in user_states and user_states[int(uid)] is not None:
         save_path(f"/user_states/{uid_str}", user_states[int(uid)])
     else:
-        save_path(f"/user_states/{uid_str}", None)
+        threading.Thread(target=_async_delete, args=(f"/user_states/{uid_str}",), daemon=True).start()
 
 def sync_amount(uid):
     save_path(f"/user_amounts/{int(uid)}", user_amounts.get(int(uid), get_global_min_deposit()))
@@ -176,7 +185,7 @@ def sync_inventory():
 
 db_data = load_database()
 user_amounts = {int(k): v for k, v in (db_data.get("user_amounts") or {}).items()}
-user_states = {int(k): v for k, v in (db_data.get("user_states") or {}).items()}
+user_states = {int(k): v for k, v in (db_data.get("user_states") or {}).items() if v is not None}
 user_balances = {int(k): float(v) for k, v in (db_data.get("user_balances") or {}).items()}
 
 payment_settings = {k: v.copy() for k, v in DEFAULT_PAYMENT_SETTINGS.items()}
@@ -2663,17 +2672,39 @@ def run_web_server():
     server = ThreadingHTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
+def call_with_retry(func, *args, **kwargs):
+    for attempt in range(5):
+        try:
+            return func(*args, **kwargs)
+        except telebot.apihelper.ApiTelegramException as e:
+            if e.error_code == 429:
+                wait_sec = 2.0
+                if isinstance(e.result_json, dict):
+                    params = e.result_json.get("parameters") or {}
+                    wait_sec = float(params.get("retry_after", 2)) + 0.5
+                print(f"Telegram 429 rate limit hit. Waiting {wait_sec}s before retry...")
+                time.sleep(wait_sec)
+            else:
+                print(f"Telegram API error in {func.__name__}: {e}")
+                return None
+        except Exception as e:
+            print(f"Unexpected error in {func.__name__}: {e}")
+            return None
+    return None
+
 if __name__ == '__main__':
     threading.Thread(target=background_cleanup_job, daemon=True).start()
     threading.Thread(target=run_web_server, daemon=True).start()
-    set_bot_commands(bot)
+    call_with_retry(set_bot_commands, bot)
+
     RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
     if RENDER_URL:
-        bot.remove_webhook()
-        bot.set_webhook(url=f"{RENDER_URL}/")
-        print(f"Webhook set to: {RENDER_URL}/")
+        clean_url = RENDER_URL.rstrip("/")
+        call_with_retry(bot.set_webhook, url=f"{clean_url}/")
+        print(f"Webhook set to: {clean_url}/")
     else:
         print("RENDER_EXTERNAL_URL not found, please check your Render environment variables.")
+
     print("Bot is running with Webhook and Firebase Realtime Database...")
     while True:
         time.sleep(10)
